@@ -120,6 +120,92 @@ router.post("/", async (req, res) => {
   }
 });
 
+
+/**
+ * GET /api/nutrition/weekly?startDate=YYYY-MM-DD
+ * Fetch nutrition entries for seven days and calculate daily totals.
+ */
+router.get("/weekly", async (req, res) => {
+  try {
+    const { startDate: dateString } = req.query;
+
+    if (
+      typeof dateString !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(dateString)
+    ) {
+      return res.status(400).json({
+        error: "Provide startDate in YYYY-MM-DD format.",
+      });
+    }
+
+    const startDate = new Date(`${dateString}T00:00:00.000Z`);
+
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      startDate.toISOString().slice(0, 10) !== dateString
+    ) {
+      return res.status(400).json({ error: "Invalid start date." });
+    }
+
+    const endDate = new Date(startDate);
+    endDate.setUTCDate(endDate.getUTCDate() + 7);
+
+    const entries = await prisma.nutritionEntry.findMany({
+      where: {
+        entryDate: {
+          gte: startDate,
+          lt: endDate,
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    // Create all seven days, including days with no entries.
+    const days = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(startDate);
+      date.setUTCDate(date.getUTCDate() + index);
+
+      return {
+        date: date.toISOString().slice(0, 10),
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        entries: 0,
+      };
+    });
+
+    const dailyTotals = new Map(
+      days.map((day) => [day.date, day])
+    );
+
+    for (const entry of entries) {
+      const date = new Date(entry.entryDate)
+        .toISOString()
+        .slice(0, 10);
+
+      const day = dailyTotals.get(date);
+
+      if (!day) continue;
+
+      day.calories += Number(entry.calories || 0);
+      day.protein += Number(entry.protein || 0);
+      day.carbs += Number(entry.carbs || 0);
+      day.fat += Number(entry.fat || 0);
+      day.entries += 1;
+    }
+
+    return res.json({ days });
+  } catch (error) {
+    console.error("Error fetching weekly nutrition:", error);
+
+    return res.status(500).json({
+      error: "Failed to fetch weekly nutrition.",
+    });
+  }
+});
+
+
 // GET /api/nutrition?date=YYYY-MM-DD — fetch entries for a day
 router.get("/", async (req, res) => {
   try {
@@ -186,32 +272,32 @@ router.delete("/:id", async (req, res) => {
 });
 
 
- // DELETE /api/nutrition/:id — delete one nutrition entry
+// DELETE /api/nutrition/:id — delete one nutrition entry
 router.delete("/:id", async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const deletedEntry = await prisma.nutritionEntry.delete({
-            where: { id },
-        });
+    const deletedEntry = await prisma.nutritionEntry.delete({
+      where: { id },
+    });
 
-        return res.status(200).json({
-            message: "Nutrition entry deleted successfully.",
-            entry: deletedEntry,
-        });
-    } catch (error) {
-        if (error.code === "P2025") {
-            return res.status(404).json({
-                error: "Nutrition entry not found.",
-            });
-        }
-
-        console.error("Error deleting nutrition entry:", error);
-
-        return res.status(500).json({
-            error: "Failed to delete nutrition entry.",
-        });
+    return res.status(200).json({
+      message: "Nutrition entry deleted successfully.",
+      entry: deletedEntry,
+    });
+  } catch (error) {
+    if (error.code === "P2025") {
+      return res.status(404).json({
+        error: "Nutrition entry not found.",
+      });
     }
+
+    console.error("Error deleting nutrition entry:", error);
+
+    return res.status(500).json({
+      error: "Failed to delete nutrition entry.",
+    });
+  }
 });
 
 

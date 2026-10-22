@@ -27,7 +27,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import Nutrition from "./components/Nutrition";
+import Nutrition from "./components/nutrition/Nutrition";
 
 const navigation = [
   { label: "Dashboard", icon: LayoutDashboard },

@@ -1497,3 +1497,45 @@
   color: #ff9b91;
   font-size: 12px;
 }
+.nutrition-tabs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 24px 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #2b2d27;
+    overflow-x: auto;
+}
+
+.nutrition-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 16px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: #aaaFA3;
+    font: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.nutrition-tab:hover {
+    background: #22241e;
+    color: #ffffff;
+}
+
+.nutrition-tab.active {
+    background: #272d1e;
+    color: #c8ff63;
+    border-color: #3b442b;
+}
+
+.nutrition-subpage {
+    padding: 24px 0;
+}
+
+.nutrition-subpage p {
+    color: #a5a99d;
+}
