@@ -9,15 +9,14 @@ datasource db {
 }
 
 model WeightEntry {
-  id         String   @id @default(cuid())
-  weightKg   Float
-  entryDate  DateTime @db.Date
-  createdAt  DateTime @default(now())
-  notes      String?
+  id        String   @id @default(cuid())
+  weightKg  Float
+  entryDate DateTime @db.Date
+  createdAt DateTime @default(now())
+  notes     String?
 
   @@index([entryDate])
 }
-
 
 model NutritionEntry {
   id        String   @id @default(cuid())
@@ -30,6 +29,38 @@ model NutritionEntry {
   entryDate DateTime @db.Date
   createdAt DateTime @default(now())
 
+  nutrientIntakes NutrientIntake[]
+
   @@index([entryDate])
   @@index([mealType, entryDate])
+}
+
+model Nutrient {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  unit      String
+  category  String
+  dailyTarget Float? // Daily target in the nutrient's existing unit
+  createdAt DateTime @default(now())
+  intakes   NutrientIntake[]
+}
+
+model NutrientIntake {
+  id               String   @id @default(cuid())
+  nutrientId       String
+  amount           Float
+  source           String
+  sourceName       String?
+  nutritionEntryId String?
+  entryDate        DateTime @db.Date
+  createdAt        DateTime @default(now())
+
+  nutrient       Nutrient        @relation(fields: [nutrientId], references: [id], onDelete: Restrict)
+  nutritionEntry NutritionEntry? @relation(fields: [nutritionEntryId], references: [id], onDelete: Cascade)
+
+  @@index([entryDate])
+  @@index([nutrientId, entryDate])
+  @@index([source, entryDate])
+  @@index([nutritionEntryId])
 }

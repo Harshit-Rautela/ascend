@@ -41,6 +41,8 @@ router.post("/analyze", async (req, res) => {
 
 
 // POST /api/nutrition — save a food entry
+
+// POST /api/nutrition — save food + micronutrients
 router.post("/", async (req, res) => {
   try {
     const {
@@ -51,20 +53,28 @@ router.post("/", async (req, res) => {
       carbs,
       fat,
       entryDate,
+      micronutrients = [],
     } = req.body;
 
+    // Validate food name
     if (
       typeof foodName !== "string" ||
       !foodName.trim() ||
       foodName.trim().length > 200
     ) {
-      return res.status(400).json({ error: "A valid food name is required." });
+      return res.status(400).json({
+        error: "A valid food name is required.",
+      });
     }
 
+    // Validate meal type
     if (!validMealTypes.includes(mealType)) {
-      return res.status(400).json({ error: "Invalid meal type." });
+      return res.status(400).json({
+        error: "Invalid meal type.",
+      });
     }
 
+    // Validate macronutrients
     for (const [key, value] of Object.entries({
       calories,
       protein,
@@ -83,6 +93,7 @@ router.post("/", async (req, res) => {
       }
     }
 
+    // Validate date format and actual calendar date
     if (
       typeof entryDate !== "string" ||
       !/^\d{4}-\d{2}-\d{2}$/.test(entryDate)
@@ -98,27 +109,109 @@ router.post("/", async (req, res) => {
       Number.isNaN(date.getTime()) ||
       date.toISOString().slice(0, 10) !== entryDate
     ) {
-      return res.status(400).json({ error: "Invalid entry date." });
+      return res.status(400).json({
+        error: "Invalid entry date.",
+      });
     }
 
-    const entry = await prisma.nutritionEntry.create({
-      data: {
-        foodName: foodName.trim(),
-        mealType,
-        calories,
-        protein,
-        carbs,
-        fat,
-        entryDate: date,
-      },
+    // Validate micronutrient array
+    if (!Array.isArray(micronutrients)) {
+      return res.status(400).json({
+        error: "micronutrients must be an array.",
+      });
+    }
+
+    const seenKeys = new Set();
+
+    for (const nutrient of micronutrients) {
+      if (
+        !nutrient ||
+        typeof nutrient.key !== "string" ||
+        !nutrient.key.trim() ||
+        typeof nutrient.amount !== "number" ||
+        !Number.isFinite(nutrient.amount) ||
+        nutrient.amount < 0 ||
+        nutrient.amount > 100000000 ||
+        seenKeys.has(nutrient.key)
+      ) {
+        return res.status(400).json({
+          error: "Invalid or duplicate micronutrient data.",
+        });
+      }
+
+      seenKeys.add(nutrient.key);
+    }
+
+    // Look up all nutrient records before writing anything.
+    const nutrientRecords = micronutrients.length
+      ? await prisma.nutrient.findMany({
+        where: {
+          key: {
+            in: micronutrients.map((nutrient) => nutrient.key),
+          },
+        },
+        select: {
+          id: true,
+          key: true,
+        },
+      })
+      : [];
+
+    // Reject keys that do not exist in the nutrient catalog.
+    if (nutrientRecords.length !== seenKeys.size) {
+      return res.status(400).json({
+        error:
+          "One or more micronutrient keys are not in the nutrient catalog.",
+      });
+    }
+
+    const nutrientIdByKey = new Map(
+      nutrientRecords.map((nutrient) => [
+        nutrient.key,
+        nutrient.id,
+      ])
+    );
+
+    // Save food and nutrient intakes atomically.
+    const entry = await prisma.$transaction(async (tx) => {
+      const createdEntry = await tx.nutritionEntry.create({
+        data: {
+          foodName: foodName.trim(),
+          mealType,
+          calories,
+          protein,
+          carbs,
+          fat,
+          entryDate: date,
+        },
+      });
+
+      if (micronutrients.length > 0) {
+        await tx.nutrientIntake.createMany({
+          data: micronutrients.map((nutrient) => ({
+            nutrientId: nutrientIdByKey.get(nutrient.key),
+            amount: nutrient.amount,
+            source: "FOOD",
+            sourceName: foodName.trim(),
+            nutritionEntryId: createdEntry.id,
+            entryDate: date,
+          })),
+        });
+      }
+
+      return createdEntry;
     });
 
     return res.status(201).json(entry);
   } catch (error) {
     console.error("Error saving nutrition entry:", error);
-    return res.status(500).json({ error: "Failed to save nutrition entry." });
+
+    return res.status(500).json({
+      error: "Failed to save nutrition entry.",
+    });
   }
 });
+
 
 
 /**
@@ -249,6 +342,76 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.get("/micronutrients", async (req, res) => {
+  try {
+    const { date } = req.query;
+
+    // Validate YYYY-MM-DD format.
+    if (
+      typeof date !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(date)
+    ) {
+      return res.status(400).json({
+        error: "A valid date in YYYY-MM-DD format is required.",
+      });
+    }
+
+    const entryDate = new Date(`${date}T00:00:00.000Z`);
+
+    // Reject impossible calendar dates, such as 2026-02-30.
+    if (
+      Number.isNaN(entryDate.getTime()) ||
+      entryDate.toISOString().slice(0, 10) !== date
+    ) {
+      return res.status(400).json({
+        error: "Invalid calendar date.",
+      });
+    }
+
+    // Fetch every catalog nutrient, including those with zero intake.
+    const nutrients = await prisma.nutrient.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        intakes: {
+          where: { entryDate },
+          select: {
+            amount: true,
+            source: true,
+          },
+        },
+      },
+    });
+
+    const result = nutrients.map((nutrient) => {
+      const fromFood = nutrient.intakes
+        .filter((intake) => intake.source === "FOOD")
+        .reduce((sum, intake) => sum + intake.amount, 0);
+
+      const fromSupplements = nutrient.intakes
+        .filter((intake) => intake.source === "SUPPLEMENT")
+        .reduce((sum, intake) => sum + intake.amount, 0);
+
+      return {
+        key: nutrient.key,
+        name: nutrient.name,
+        category: nutrient.category,
+        unit: nutrient.unit,
+        fromFood,
+        fromSupplements,
+        amount: fromFood + fromSupplements,
+        target: nutrient.dailyTarget
+      };
+    });
+
+    return res.json({ nutrients: result });
+  } catch (error) {
+    console.error("Error fetching micronutrient totals:", error);
+
+    return res.status(500).json({
+      error: "Failed to fetch micronutrient totals.",
+    });
+  }
+});
 // DELETE /api/nutrition/:id — delete a food entry
 router.delete("/:id", async (req, res) => {
   try {

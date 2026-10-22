@@ -845,3 +845,283 @@
     font-size: 12px;
   }
 }
+
+/* Add these styles to nutrition.css */
+.micronutrient-panel {
+    margin-top: 1.25rem;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.micronutrient-heading {
+    align-items: center;
+    gap: 1rem;
+}
+
+.micronutrient-source-note {
+    color: var(--text-muted, #9a9d94);
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.micronutrient-scroll {
+    display: flex;
+    gap: 0.9rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 0.25rem 0.1rem 0.8rem;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: #484a42 transparent;
+}
+
+.micronutrient-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.micronutrient-scroll::-webkit-scrollbar-thumb {
+    background: #484a42;
+    border-radius: 999px;
+}
+
+.micronutrient-card {
+    background: var(--card-background, #1b1d19);
+    border: 1px solid var(--border-color, #30322c);
+    border-radius: 16px;
+    display: flex;
+    flex: 0 0 190px;
+    flex-direction: column;
+    gap: 0.8rem;
+    min-height: 154px;
+    padding: 1rem;
+    scroll-snap-align: start;
+}
+
+.micronutrient-card-top {
+    align-items: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.micronutrient-card-top > span:first-child {
+    color: var(--text-primary, #f4f4ef);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.micronutrient-category {
+    color: var(--text-muted, #9a9d94);
+    font-size: 0.68rem;
+    letter-spacing: 0.02em;
+}
+
+.micronutrient-amount {
+    color: var(--text-primary, #f4f4ef);
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+}
+
+.micronutrient-amount span {
+    color: var(--text-muted, #9a9d94);
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    margin-left: 0.25rem;
+}
+
+.micronutrient-track {
+    height: 5px;
+    margin-top: 0.1rem;
+}
+
+.micronutrient-fill {
+    background: #d4ff58;
+    height: 100%;
+    transition: width 180ms ease;
+}
+
+
+/* Micronutrient section */
+.micronutrients-section {
+  margin-top: 28px;
+}
+
+.micronutrients-section h2 {
+  letter-spacing: -0.035em;
+}
+
+.micronutrients-section .section-subtitle {
+  color: #969b91;
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 6px;
+}
+
+/* Responsive card grid */
+.micronutrients-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+  align-items: stretch;
+}
+
+/* Premium dark card */
+.micronutrient-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid rgba(180, 195, 160, 0.13);
+  border-radius: 20px;
+  background: linear-gradient(
+    145deg,
+    #20221e 0%,
+    #1a1c19 75%,
+    #191b18 100%
+  );
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.micronutrient-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(198, 243, 106, 0.38);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+/* Name and category */
+.micronutrient-card-top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.micronutrient-card-top > span:first-child {
+  color: #f3f4ef;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.4;
+}
+
+.micronutrient-category {
+  color: #9ca296;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+/* Main amount */
+.micronutrient-amount {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 20px;
+  color: #f4f5ef;
+  font-size: clamp(27px, 2.2vw, 34px);
+  font-weight: 680;
+  letter-spacing: -0.055em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.micronutrient-amount span {
+  color: #a4aa9b;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* Progress track */
+.nutrition-track.micronutrient-track {
+  width: 100%;
+  height: 6px;
+  margin-top: 19px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #353831;
+}
+
+.nutrition-fill.micronutrient-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #a8df4d, #d0ff76);
+  box-shadow: 0 0 10px rgba(198, 243, 106, 0.14);
+  transition: width 450ms ease;
+}
+
+/* Percentage */
+.micronutrient-percentage {
+  margin: 13px 0 0;
+  color: #c6f36a;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Target pinned toward the bottom */
+.micronutrient-target {
+  margin: auto 0 0;
+  padding-top: 24px;
+  color: #a5aa9e;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Keyboard accessibility */
+@media (hover: hover) {
+  .micronutrient-card:hover .micronutrient-fill {
+    filter: brightness(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .micronutrient-card,
+  .nutrition-fill.micronutrient-fill {
+    transition: none;
+  }
+
+  .micronutrient-card:hover {
+    transform: none;
+  }
+}
+
+/* Smaller screens */
+@media (max-width: 600px) {
+  .micronutrients-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .micronutrient-card {
+    padding: 15px;
+    border-radius: 16px;
+  }
+
+  .micronutrient-amount {
+    font-size: 26px;
+    margin-top: 17px;
+  }
+
+  .micronutrient-target {
+    padding-top: 20px;
+  }
+}
+
+@media (max-width: 360px) {
+  .micronutrients-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
