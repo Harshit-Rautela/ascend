@@ -1,0 +1,28 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon --exec tsx server.js",
+    "start": "tsx server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google/genai": "^2.30.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14",
+    "prisma": "^7.10.1",
+    "tsx": "^4.23.15"
+  }
+}

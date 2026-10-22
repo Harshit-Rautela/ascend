@@ -1,0 +1,35 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model WeightEntry {
+  id         String   @id @default(cuid())
+  weightKg   Float
+  entryDate  DateTime @db.Date
+  createdAt  DateTime @default(now())
+  notes      String?
+
+  @@index([entryDate])
+}
+
+
+model NutritionEntry {
+  id        String   @id @default(cuid())
+  foodName  String
+  mealType  String
+  calories  Float
+  protein   Float
+  carbs     Float
+  fat       Float
+  entryDate DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  @@index([entryDate])
+  @@index([mealType, entryDate])
+}
