@@ -77,6 +77,9 @@ export default function NutritionHistory() {
     const [weeklyLoading, setWeeklyLoading] = useState(false);
     const [error, setError] = useState("");
     const [weeklyError, setWeeklyError] = useState("");
+    const [micronutrients, setMicronutrients] = useState([]);
+    const [micronutrientsLoading, setMicronutrientsLoading] = useState(false);
+    const [micronutrientsError, setMicronutrientsError] = useState("");
 
     useEffect(() => {
         const controller = new AbortController();
@@ -115,6 +118,51 @@ export default function NutritionHistory() {
         loadHistory();
         return () => controller.abort();
     }, [selectedDate]);
+
+
+    useEffect(() => {
+        const controller = new AbortController();
+
+        async function loadMicronutrients() {
+            setMicronutrientsLoading(true);
+            setMicronutrientsError("");
+
+            try {
+                const response = await fetch(
+                    `${API_URL}/micronutrients?date=${encodeURIComponent(selectedDate)}`,
+                    { signal: controller.signal }
+                );
+
+                if (!response.ok) {
+                    throw new Error("Could not load micronutrient history.");
+                }
+
+                const data = await response.json();
+
+                if (!Array.isArray(data.nutrients)) {
+                    throw new Error("Unexpected micronutrient response.");
+                }
+
+                setMicronutrients(data.nutrients);
+            } catch (err) {
+                if (err.name !== "AbortError") {
+                    setMicronutrientsError(
+                        err.message || "Could not load micronutrients."
+                    );
+                    setMicronutrients([]);
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setMicronutrientsLoading(false);
+                }
+            }
+        }
+
+        loadMicronutrients();
+
+        return () => controller.abort();
+    }, [selectedDate]);
+
 
     const weekStart = useMemo(() => getMonday(selectedDate), [selectedDate]);
 
@@ -293,6 +341,8 @@ export default function NutritionHistory() {
                             <span className="nutrition-history-chart-unit">kcal</span>
                         </div>
 
+
+
                         {weeklyError ? (
                             <p role="alert" className="nutrition-history-error">{weeklyError}</p>
                         ) : weeklyLoading ? (
@@ -344,7 +394,93 @@ export default function NutritionHistory() {
                             </div>
                         )}
                     </section>
+                    <section className="nutrition-history-section">
+                        <div className="nutrition-history-section-heading">
+                            <div>
+                                <h3>Micronutrient intake</h3>
+                                <p>Vitamins, minerals, and other nutrients for this day.</p>
+                            </div>
+                        </div>
 
+                        {micronutrientsLoading ? (
+                            <p className="nutrition-history-status">
+                                Loading micronutrient history...
+                            </p>
+                        ) : micronutrientsError ? (
+                            <p role="alert" className="nutrition-history-error">
+                                {micronutrientsError}
+                            </p>
+                        ) : micronutrients.length === 0 ? (
+                            <div className="nutrition-history-chart-empty">
+                                <p>No micronutrient data for this day yet.</p>
+                            </div>
+                        ) : (
+                            <div className="history-micronutrient-grid">
+                                {micronutrients.map((nutrient) => {
+                                    const amount = Number(nutrient.amount) || 0;
+                                    const target = Number(nutrient.target);
+
+                                    const hasTarget =
+                                        nutrient.target != null &&
+                                        Number.isFinite(target) &&
+                                        target > 0;
+
+                                    const percentage = hasTarget
+                                        ? Math.round((amount / target) * 100)
+                                        : null;
+
+                                    const progress = percentage == null
+                                        ? 0
+                                        : Math.min(percentage, 100);
+
+                                    return (
+                                        <article
+                                            className="history-micronutrient-card"
+                                            key={nutrient.key}
+                                        >
+                                            <div className="history-micronutrient-heading">
+                                                <h4>{nutrient.name}</h4>
+                                                <span>{nutrient.category || "Nutrient"}</span>
+                                            </div>
+
+                                            <div className="history-micronutrient-amount">
+                                                {amount.toLocaleString("en-IN", {
+                                                    maximumFractionDigits: 2,
+                                                })}
+                                                <span>{nutrient.unit}</span>
+                                            </div>
+
+                                            <div
+                                                className="history-micronutrient-track"
+                                                role="progressbar"
+                                                aria-label={`${nutrient.name} daily target`}
+                                                aria-valuemin={0}
+                                                aria-valuemax={100}
+                                                aria-valuenow={progress}
+                                            >
+                                                <div
+                                                    className="history-micronutrient-fill"
+                                                    style={{ width: `${progress}%` }}
+                                                />
+                                            </div>
+
+                                            <p className="history-micronutrient-percentage">
+                                                {percentage == null
+                                                    ? "No target set"
+                                                    : `${percentage}% of daily target`}
+                                            </p>
+
+                                            <p className="history-micronutrient-target">
+                                                Target: {hasTarget
+                                                    ? `${target.toLocaleString("en-IN")} ${nutrient.unit}`
+                                                    : "No target set"}
+                                            </p>
+                                        </article>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </section>
                     <div className="nutrition-history-chart-grid">
                         <section className="nutrition-history-section">
                             <div className="nutrition-history-section-heading">
