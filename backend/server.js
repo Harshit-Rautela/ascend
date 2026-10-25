@@ -3,7 +3,12 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import prisma from "./prisma.js";
-import nutritionRoutes from "./routes/nutrition.js";
+import nutritionRouter from "./routes/nutrition.js";
+import exerciseRouter from "./routes/exercise.js";
+import trainingPlansRouter from "./routes/trainingPlans.js";
+import workoutsRouter from "./routes/workouts.js";
+import habitsRouter from "./routes/habits.js";
+
 
 dotenv.config();
 
@@ -12,8 +17,11 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
-app.use("/api/nutrition", nutritionRoutes);
-
+app.use("/api/exercise", exerciseRouter);
+app.use("/api/nutrition", nutritionRouter);
+app.use("/api/training-plans", trainingPlansRouter);
+app.use("/api/workouts", workoutsRouter);
+app.use("/api/habits", habitsRouter);
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({
@@ -110,6 +118,8 @@ app.get("/api/weight", async (req, res) => {
   }
 });
 
+
 app.listen(PORT, () => {
   console.log(`Ascend server running on port ${PORT}`);
 });
+

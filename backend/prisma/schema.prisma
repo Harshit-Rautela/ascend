@@ -2,6 +2,8 @@
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
+  importFileExtension = "ts"
+
 }
 
 datasource db {
@@ -63,4 +65,149 @@ model NutrientIntake {
   @@index([nutrientId, entryDate])
   @@index([source, entryDate])
   @@index([nutritionEntryId])
+}
+
+
+model Exercise {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  category        String   // STRENGTH, CARDIO, MOBILITY, OTHER
+  equipment       String?
+  measurementType String   // WEIGHT_REPS, BODYWEIGHT_REPS, DURATION, DISTANCE, CARDIO
+  description     String?
+  isCustom        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  planExercises   PlanExercise[]
+  workoutExercises WorkoutExercise[]
+
+  @@index([category])
+}
+
+model TrainingPlan {
+  id        String   @id @default(cuid())
+  name      String   @default("My Weekly Plan")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  days PlanDay[]
+}
+
+model PlanDay {
+  id             String   @id @default(cuid())
+  trainingPlanId String
+  dayOfWeek      Int      // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  isRestDay      Boolean  @default(false)
+  notes          String?
+
+  trainingPlan TrainingPlan  @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+  exercises    PlanExercise[]
+
+  @@unique([trainingPlanId, dayOfWeek])
+  @@index([trainingPlanId])
+}
+
+model PlanExercise {
+  id              String @id @default(cuid())
+  planDayId       String
+  exerciseId      String
+  sortOrder       Int    @default(0)
+  targetSets      Int?
+  targetReps      Int?
+  targetWeightKg  Float?
+  targetDurationSeconds Int?
+  targetDistanceMeters  Float?
+  notes           String?
+
+  planDay  PlanDay  @relation(fields: [planDayId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  @@unique([planDayId, sortOrder])
+  @@index([exerciseId])
+}
+
+model WorkoutSession {
+  id              String   @id @default(cuid())
+  performedAt     DateTime @default(now())
+  durationMinutes Int?
+  notes           String?
+  status          String   @default("COMPLETED") // IN_PROGRESS, COMPLETED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  exercises WorkoutExercise[]
+
+  @@index([performedAt])
+  @@index([status, performedAt])
+}
+
+model WorkoutExercise {
+  id              String @id @default(cuid())
+  workoutSessionId String
+  exerciseId      String
+  sortOrder       Int    @default(0)
+  notes           String?
+
+  workoutSession WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  exercise       Exercise      @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  sets           WorkoutSet[]
+
+  @@unique([workoutSessionId, sortOrder])
+  @@index([exerciseId])
+}
+
+model WorkoutSet {
+  id                 String  @id @default(cuid())
+  workoutExerciseId  String
+  setNumber          Int
+  weightKg           Float?
+  reps               Int?
+  durationSeconds    Int?
+  distanceMeters     Float?
+  isCompleted        Boolean @default(false)
+  notes              String?
+
+  workoutExercise WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([workoutExerciseId, setNumber])
+}
+
+model BodyMeasurement {
+  id          String   @id @default(cuid())
+  measurement String   // WAIST, CHEST, ARM, THIGH, BODY_FAT, etc.
+  value       Float
+  unit        String   // cm, kg, percent, etc.
+  measuredAt  DateTime @default(now())
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([measurement, measuredAt])
+}
+
+
+model Habit {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  completions HabitCompletion[]
+
+  @@index([isActive])
+}
+
+model HabitCompletion {
+  id             String   @id @default(cuid())
+  habitId        String
+  completionDate DateTime @db.Date
+  createdAt      DateTime @default(now())
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, completionDate])
+  @@index([completionDate])
 }
