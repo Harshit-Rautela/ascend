@@ -8,6 +8,7 @@ import exerciseRouter from "./routes/exercise.js";
 import trainingPlansRouter from "./routes/trainingPlans.js";
 import workoutsRouter from "./routes/workouts.js";
 import habitsRouter from "./routes/habits.js";
+import statsRouter from "./routes/stats.js";
 
 
 dotenv.config();
@@ -22,6 +23,7 @@ app.use("/api/nutrition", nutritionRouter);
 app.use("/api/training-plans", trainingPlansRouter);
 app.use("/api/workouts", workoutsRouter);
 app.use("/api/habits", habitsRouter);
+app.use("/api/stats", statsRouter);
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({
