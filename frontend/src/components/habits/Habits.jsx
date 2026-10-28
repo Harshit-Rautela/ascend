@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import "./Habits.css";
 import HabitHistory from "./HabitHistory.jsx"
+import HabitConsistency from "./HabitConsistency.jsx";
 
 const API_URL = "http://localhost:5000/api/habits";
 
@@ -437,13 +438,7 @@ function Habits() {
       {activeTab === "History" && <HabitHistory/>
       }
 
-      {activeTab === "Consistency" && (
-        <section className="habits-placeholder">
-          <ChartNoAxesCombined size={28} />
-          <h2>Consistency</h2>
-          <p>Explore your weekly and monthly completion patterns.</p>
-        </section>
-      )}
+      {activeTab === "Consistency" && <HabitConsistency/>}
 
       {activeTab === "Streaks" && (
         <section className="habits-placeholder">

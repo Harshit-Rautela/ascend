@@ -43,6 +43,119 @@ router.get("/", async (req, res) => {
 });
 
 
+/**
+ * GET /api/habits/:id/consistency?days=90
+ *
+ * Returns the selected active habit's completion history.
+ * The range includes today and the previous days.
+ */
+router.get("/:id/consistency", async (req, res) => {
+    try {
+        const requestedDays = Number(req.query.days ?? 90);
+
+        if (
+            !Number.isInteger(requestedDays) ||
+            requestedDays < 1 ||
+            requestedDays > 90
+        ) {
+            return res.status(400).json({
+                error: "days must be an integer between 1 and 90.",
+            });
+        }
+
+        const habit = await prisma.habit.findFirst({
+            where: {
+                id: req.params.id,
+                isActive: true,
+            },
+            select: {
+                id: true,
+                title: true,
+                createdAt: true,
+            },
+        });
+
+        if (!habit) {
+            return res.status(404).json({
+                error: "Active habit not found.",
+            });
+        }
+
+        // Use UTC calendar dates, consistent with parseDate().
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+
+        const startDate = new Date(today);
+        startDate.setUTCDate(
+            startDate.getUTCDate() - (requestedDays - 1)
+        );
+
+        const endDateExclusive = new Date(today);
+        endDateExclusive.setUTCDate(
+            endDateExclusive.getUTCDate() + 1
+        );
+
+        const completions = await prisma.habitCompletion.findMany({
+            where: {
+                habitId: habit.id,
+                completionDate: {
+                    gte: startDate,
+                    lt: endDateExclusive,
+                },
+            },
+            select: {
+                completionDate: true,
+            },
+        });
+
+        const completedDates = new Set(
+            completions.map((completion) =>
+                completion.completionDate
+                    .toISOString()
+                    .slice(0, 10)
+            )
+        );
+
+        const activity = [];
+
+        for (let i = 0; i < requestedDays; i++) {
+            const date = new Date(startDate);
+            date.setUTCDate(date.getUTCDate() + i);
+
+            const dateKey = date.toISOString().slice(0, 10);
+
+            // Dates before the habit was created are not missed days.
+            const eligible =
+                dateKey >= habit.createdAt.toISOString().slice(0, 10);
+
+            activity.push({
+                date: dateKey,
+                eligible,
+                completed: eligible && completedDates.has(dateKey),
+            });
+        }
+
+        return res.json({
+            habit: {
+                id: habit.id,
+                title: habit.title,
+            },
+            days: requestedDays,
+            activity,
+        });
+    } catch (error) {
+        console.error(
+            "Error fetching habit consistency:",
+            error
+        );
+
+        return res.status(500).json({
+            error: "Failed to fetch habit consistency.",
+        });
+    }
+});
+
+
 router.post("/", async (req, res) => {
     try {
         const { title, description } = req.body ?? {};
