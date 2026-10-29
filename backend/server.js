@@ -9,6 +9,10 @@ import trainingPlansRouter from "./routes/trainingPlans.js";
 import workoutsRouter from "./routes/workouts.js";
 import habitsRouter from "./routes/habits.js";
 import statsRouter from "./routes/stats.js";
+import quoteRoutes from "./routes/quotes.js";
+import waterRoutes from "./routes/waterIntake.js";
+
+
 
 
 dotenv.config();
@@ -24,6 +28,8 @@ app.use("/api/training-plans", trainingPlansRouter);
 app.use("/api/workouts", workoutsRouter);
 app.use("/api/habits", habitsRouter);
 app.use("/api/stats", statsRouter);
+app.use("/api/quotes", quoteRoutes);
+app.use("/api/water", waterRoutes);
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({

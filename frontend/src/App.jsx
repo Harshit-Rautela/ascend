@@ -333,7 +333,7 @@ function App() {
           </div>
         </header>
 
-        <section className="welcome-section">
+        {/* <section className="welcome-section">
           <div>
             <div className="eyebrow">
               <span className="status-dot" />
@@ -351,7 +351,7 @@ function App() {
             <Plus size={18} />
             Log activity
           </button>
-        </section>
+        </section> */}
 
         {activePage === "Nutrition" ? (<Nutrition />) :
           activePage === "Workouts" ? (

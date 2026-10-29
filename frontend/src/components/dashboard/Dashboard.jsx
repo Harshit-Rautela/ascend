@@ -1,275 +1,626 @@
+
 import { useEffect, useState } from "react";
-import { Plus, Dumbbell, Flame, Target } from "lucide-react";
+import {
+  Activity,
+  ArrowDownRight,
+  ArrowUpRight,
+  CalendarDays,
+  CheckCircle2,
+  Dumbbell,
+  Flame,
+  HeartPulse,
+  Scale,
+  Sparkles,
+  Target,
+  TrendingUp,
+  GlassWater,
+  Plus,
+  Weight,
+} from "lucide-react";
+
 import DailyQuotes from "./DailyQuotes";
 import "./dashboard.css";
 
-export default function Dashboard() {
-    const [weight, setWeight] = useState(null);
-    const [weightLoading, setWeightLoading] = useState(true);
-    const [weightError, setWeightError] = useState("");
-    const [workout, setWorkout] = useState(null);
-    const [workoutLoading, setWorkoutLoading] = useState(true);
-    const [workoutError, setWorkoutError] = useState("");
-    const [habitStats, setHabitStats] = useState({
-        completed: 0,
-        total: 0,
+const API_BASE_URL = "http://localhost:5000/api";
+
+function getLocalDateString() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatToday() {
+  return new Intl.DateTimeFormat("en-IN", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(new Date());
+}
+
+function Dashboard() {
+  const [habits, setHabits] = useState([]);
+  const [weightEntry, setWeightEntry] = useState(null);
+  const [workout, setWorkout] = useState(null);
+
+  const [loading, setLoading] = useState(true);
+  const [loadErrors, setLoadErrors] = useState([]);
+  const [waterTotalMl, setWaterTotalMl] = useState(0);
+  const [waterGoalMl, setWaterGoalMl] = useState(2500);
+  const [waterLoading, setWaterLoading] = useState(true);
+  const [waterSaving, setWaterSaving] = useState(false);
+  const [waterError, setWaterError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function getJson(url) {
+      const response = await fetch(url, {
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status})`);
+      }
+
+      return response.json();
+    }
+
+    async function loadDashboard() {
+      const date = getLocalDateString();
+
+      const results = await Promise.allSettled([
+        getJson(
+          `${API_BASE_URL}/habits/daily?date=${date}`
+        ),
+        getJson(`${API_BASE_URL}/weight`),
+        getJson(`${API_BASE_URL}/workouts?date=${date}`),
+      ]);
+
+      if (controller.signal.aborted) return;
+
+      const errors = [];
+
+      if (results[0].status === "fulfilled") {
+        const data = results[0].value;
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data.habits)
+            ? data.habits
+            : Array.isArray(data.data)
+              ? data.data
+              : [];
+
+        setHabits(list.filter((habit) => habit.isActive !== false));
+      } else {
+        setHabits([]);
+        errors.push("habits");
+      }
+
+      if (results[1].status === "fulfilled") {
+        const data = results[1].value;
+        const entries = Array.isArray(data)
+          ? data
+          : Array.isArray(data.data)
+            ? data.data
+            : [];
+
+        const sortedEntries = [...entries].sort(
+          (a, b) =>
+            new Date(b.entryDate).getTime() -
+            new Date(a.entryDate).getTime()
+        );
+
+        setWeightEntry(sortedEntries[0] ?? null);
+      } else {
+        setWeightEntry(null);
+        errors.push("weight");
+      }
+
+      if (results[2].status === "fulfilled") {
+        const data = results[2].value;
+        setWorkout(data.session ?? data.workout ?? null);
+      } else {
+        setWorkout(null);
+        errors.push("workout");
+      }
+
+      setLoadErrors(errors);
+      setLoading(false);
+    }
+
+    loadDashboard().catch((error) => {
+      if (!controller.signal.aborted) {
+        console.error("Dashboard loading error:", error);
+        setLoadErrors(["dashboard"]);
+        setLoading(false);
+      }
     });
-    const [habitsLoading, setHabitsLoading] = useState(true);
-    const [habitsError, setHabitsError] = useState("");
 
-    useEffect(() => {
-        async function loadWeight() {
-            try {
-                const response = await fetch("http://localhost:5000/api/weight");
-                const result = await response.json();
+    return () => controller.abort();
+  }, []);
+  async function loadWaterIntake(signal) {
+    setWaterLoading(true);
+    setWaterError("");
 
-                if (!response.ok) {
-                    throw new Error(result.message || "Could not load weight.");
-                }
+    try {
+      const date = getLocalDateString();
 
-                const entries = result.data ?? [];
+      const response = await fetch(
+        `${API_BASE_URL}/water?date=${date}`,
+        { signal }
+      );
 
-                // The API returns weight history; select the newest dated entry.
-                const latestEntry = entries.reduce((latest, entry) => {
-                    if (!latest) return entry;
+      if (!response.ok) {
+        throw new Error("Could not load water intake.");
+      }
 
-                    const entryDate = entry.entryDate.slice(0, 10);
-                    const latestDate = latest.entryDate.slice(0, 10);
+      const data = await response.json();
 
-                    return entryDate > latestDate ? entry : latest;
-                }, null);
+      setWaterTotalMl(data.totalMl ?? 0);
+      setWaterGoalMl(data.goalMl ?? 2500);
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.error("Water intake error:", error);
+        setWaterError("Unable to load water intake.");
+      }
+    } finally {
+      setWaterLoading(false);
+    }
+  }
 
-                setWeight(latestEntry?.weightKg ?? null);
-            } catch (error) {
-                setWeightError(error.message || "Could not load weight.");
-            } finally {
-                setWeightLoading(false);
-            }
-        }
+  async function addWater(amountMl) {
+    if (waterSaving) return;
 
-        loadWeight();
-    }, []);
-    useEffect(() => {
-        async function loadTodayHabits() {
-            try {
-                // Build today's local calendar date as YYYY-MM-DD.
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, "0");
-                const day = String(now.getDate()).padStart(2, "0");
-                const today = `${year}-${month}-${day}`;
+    setWaterSaving(true);
+    setWaterError("");
 
-                const response = await fetch(
-                    `http://localhost:5000/api/habits/daily?date=${today}`
-                );
+    try {
+      const response = await fetch(`${API_BASE_URL}/water`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amountMl,
+          date: getLocalDateString(),
+        }),
+      });
 
-                const result = await response.json();
+      const data = await response.json().catch(() => ({}));
 
-                if (!response.ok) {
-                    throw new Error(
-                        result.error || "Could not load today's habits."
-                    );
-                }
+      if (!response.ok) {
+        throw new Error(data.message || "Could not save water intake.");
+      }
 
-                const habits = result.habits ?? [];
+      // Reload the total from the backend after a successful save.
+      await loadWaterIntake();
+    } catch (error) {
+      console.error("Water saving error:", error);
+      setWaterError(error.message || "Could not save water intake.");
+    } finally {
+      setWaterSaving(false);
+    }
+  }
+  useEffect(() => {
+    const controller = new AbortController();
 
-                const completed = habits.filter(
-                    (habit) => habit.completed
-                ).length;
+    loadWaterIntake(controller.signal);
 
-                setHabitStats({
-                    completed,
-                    total: habits.length,
-                });
-            } catch (error) {
-                setHabitsError(
-                    error.message || "Could not load today's habits."
-                );
-            } finally {
-                setHabitsLoading(false);
-            }
-        }
+    return () => controller.abort();
+  }, []);
 
-        loadTodayHabits();
-    }, []);
-    useEffect(() => {
-        async function loadTodayWorkout() {
-            try {
-                // Use the user's local calendar date, not UTC.
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, "0");
-                const day = String(now.getDate()).padStart(2, "0");
-                const today = `${year}-${month}-${day}`;
+  const completedHabits = habits.filter(
+    (habit) =>
+      habit.completed === true ||
+      habit.completedToday === true ||
+      habit.isCompleted === true
+  ).length;
 
-                const response = await fetch(
-                    `http://localhost:5000/api/workouts?date=${today}`
-                );
+  const habitPercentage =
+    habits.length > 0
+      ? Math.round((completedHabits / habits.length) * 100)
+      : 0;
 
-                const result = await response.json();
+  const currentWeight = weightEntry?.weightKg;
+  const workoutCompleted = workout?.isCompleted === true;
 
-                if (!response.ok) {
-                    throw new Error(
-                        result.error || "Could not load today's workout."
-                    );
-                }
+  const workoutName =
+    workout?.name ||
+    workout?.title ||
+    workout?.workoutName ||
+    "Today's workout";
 
-                setWorkout(result.session ?? null);
-            } catch (error) {
-                setWorkoutError(
-                    error.message || "Could not load today's workout."
-                );
-            } finally {
-                setWorkoutLoading(false);
-            }
-        }
+  return (
+    <main className="dashboard-content">
+      {/* Page header */}
+      <header className="dashboard-welcome">
+        <div>
+          <div className="dashboard-welcome-label">
+            <span className="dashboard-live-dot" />
+            YOUR PERSONAL FITNESS SPACE
+          </div>
 
-        loadTodayWorkout();
-    }, []);
-    return (
-        <div className="dashboard-content">
-            <section className="dashboard-hero">
-                <div>
-                    <span className="dashboard-eyebrow">
-                        YOUR PERSONAL GROWTH SPACE
+          <h1>
+            Make today <span>count.</span>
+          </h1>
+
+          <p>
+            Small wins. Stronger habits. A better you.
+          </p>
+        </div>
+
+        <div className="dashboard-date">
+          <CalendarDays size={17} />
+          <span>{formatToday()}</span>
+        </div>
+      </header>
+
+      {loadErrors.length > 0 && (
+        <div className="dashboard-notice" role="status">
+          Some dashboard information could not be loaded.
+          Your other available information is still shown.
+        </div>
+      )}
+
+      {/* Overview metrics */}
+      <section
+        className="dashboard-stats-grid"
+        aria-label="Today's overview"
+      >
+        <article className="dashboard-stat-card">
+          <div className="dashboard-stat-top">
+            <span className="dashboard-stat-label">
+              HABITS COMPLETED
+            </span>
+            <span className="dashboard-stat-icon lime">
+              <CheckCircle2 size={19} />
+            </span>
+          </div>
+
+          <div className="dashboard-stat-value">
+            {loading ? "—" : `${completedHabits}/${habits.length}`}
+          </div>
+
+          <div className="dashboard-stat-bottom">
+            <span className="dashboard-stat-accent">
+              {loading ? "Loading habits" : `${habitPercentage}% complete`}
+            </span>
+            <div className="dashboard-mini-progress">
+              <div
+                style={{
+                  width: `${loading ? 0 : habitPercentage}%`,
+                }}
+              />
+            </div>
+          </div>
+        </article>
+
+        <article className="dashboard-stat-card">
+          <div className="dashboard-stat-top">
+            <span className="dashboard-stat-label">
+              ACTIVE HABITS
+            </span>
+            <span className="dashboard-stat-icon purple">
+              <Target size={19} />
+            </span>
+          </div>
+
+          <div className="dashboard-stat-value">
+            {loading ? "—" : habits.length}
+          </div>
+
+          <div className="dashboard-stat-caption">
+            <Activity size={14} />
+            <span>Daily commitments</span>
+          </div>
+        </article>
+
+        <article className="dashboard-stat-card">
+          <div className="dashboard-stat-top">
+            <span className="dashboard-stat-label">
+              CURRENT WEIGHT
+            </span>
+            <span className="dashboard-stat-icon blue">
+              <Scale size={19} />
+            </span>
+          </div>
+
+          <div className="dashboard-stat-value">
+            {currentWeight != null
+              ? Number(currentWeight).toFixed(1)
+              : "—"}
+            <span className="dashboard-stat-unit">
+              {currentWeight != null ? "kg" : ""}
+            </span>
+          </div>
+
+          <div className="dashboard-stat-caption">
+            <Weight size={14} />
+            <span>
+              {weightEntry?.entryDate
+                ? `Latest · ${new Date(
+                  `${String(weightEntry.entryDate).slice(0, 10)}T12:00:00`
+                ).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                })}`
+                : "No weight entry yet"}
+            </span>
+          </div>
+        </article>
+
+        <article className="dashboard-stat-card dashboard-water-stat">
+          <div className="dashboard-stat-top">
+            <span className="dashboard-stat-label">
+              WATER INTAKE
+            </span>
+
+            <span className="dashboard-stat-icon blue">
+              <GlassWater size={19} />
+            </span>
+          </div>
+
+          <div className="dashboard-stat-value">
+            {waterLoading
+              ? "—"
+              : (waterTotalMl / 1000).toFixed(2)}
+
+            <span className="dashboard-stat-unit">
+              {waterLoading ? "" : " L"}
+            </span>
+          </div>
+
+          <div className="dashboard-water-progress">
+            <div
+              style={{
+                width: `${waterLoading || waterGoalMl <= 0
+                    ? 0
+                    : Math.min(100, (waterTotalMl / waterGoalMl) * 100)
+                  }%`,
+              }}
+            />
+          </div>
+
+          <div className="dashboard-water-footer">
+            <span>
+              {waterLoading
+                ? "Loading intake..."
+                : `${Math.min(
+                  100,
+                  Math.round((waterTotalMl / Math.max(waterGoalMl, 1)) * 100)
+                )}% of ${(waterGoalMl / 1000).toFixed(1)} L goal`}
+            </span>
+          </div>
+
+          <div className="dashboard-water-actions">
+            {[150, 250, 500].map((amount) => (
+              <button
+                key={amount}
+                type="button"
+                onClick={() => addWater(amount)}
+                disabled={waterLoading || waterSaving}
+                aria-label={`Add ${amount} milliliters of water`}
+              >
+                <Plus size={13} />
+                {amount}
+              </button>
+            ))}
+          </div>
+
+          {waterError && (
+            <p className="dashboard-water-error" role="alert">
+              {waterError}
+            </p>
+          )}
+        </article>
+      </section>
+
+      {/* Main dashboard content */}
+      <section className="dashboard-main-grid">
+        {/* Daily mission */}
+        <article className="dashboard-panel dashboard-mission-card">
+          <div className="dashboard-panel-heading">
+            <div className="dashboard-panel-heading-icon">
+              <Target size={21} />
+            </div>
+
+            <div>
+              <span className="dashboard-section-eyebrow">
+                YOUR DAILY MISSION
+              </span>
+              <h2>Goals to smash today.</h2>
+            </div>
+          </div>
+
+          <p className="dashboard-mission-copy">
+            You don't need to be perfect. You need to show up.
+            Keep the promises you make to yourself, one action at
+            a time. That's how real progress is built.
+          </p>
+
+          <div className="dashboard-list-heading">
+            <span>Today's goals</span>
+            <span className="dashboard-list-count">
+              {loading ? "LOADING" : `${habits.length} GOALS`}
+            </span>
+          </div>
+
+          <div className="dashboard-habit-list">
+            {loading ? (
+              <p className="dashboard-empty-message">
+                Preparing your daily mission...
+              </p>
+            ) : habits.length === 0 ? (
+              <p className="dashboard-empty-message">
+                No active habits to show today.
+              </p>
+            ) : (
+              habits.map((habit, index) => {
+                const completed =
+                  habit.completed === true ||
+                  habit.completedToday === true ||
+                  habit.isCompleted === true;
+
+                return (
+                  <div
+                    className={`dashboard-habit-row ${completed ? "is-completed" : ""
+                      }`}
+                    key={habit.id}
+                  >
+                    <span className="dashboard-habit-number">
+                      {String(index + 1).padStart(2, "0")}
                     </span>
 
-                    <h1>
-                        Build a better <span>you.</span>
-                    </h1>
+                    <span className="dashboard-habit-title">
+                      {habit.title}
+                    </span>
 
-                    <p>
-                        Small steps. Consistent effort. Extraordinary progress.
-                    </p>
-                </div>
-
-                <button className="primary-button">
-                    <Plus size={18} />
-                    Log activity
-                </button>
-            </section>
-
-            <DailyQuotes />
-
-            <section className="dashboard-placeholder-grid">
-                <article className="dashboard-placeholder-card">
-                    <Dumbbell size={22} />
-
-                    <h3>Today's workout</h3>
-
-                    {workoutLoading ? (
-                        <p>Loading workout...</p>
-                    ) : workoutError ? (
-                        <p role="alert">{workoutError}</p>
-                    ) : !workout ? (
+                    <span
+                      className={`dashboard-habit-status ${completed ? "is-completed" : ""
+                        }`}
+                    >
+                      {completed ? (
                         <>
-                            <p>No workout saved for today yet.</p>
-                            <span className="dashboard-workout-status">
-                                Not started
-                            </span>
+                          <CheckCircle2 size={14} />
+                          Done
                         </>
-                    ) : (
-                        <>
-                            <p>
-                                {workout.exercises.length}{" "}
-                                {workout.exercises.length === 1
-                                    ? "exercise"
-                                    : "exercises"}{" "}
-                                saved
-                            </p>
+                      ) : (
+                        "To do"
+                      )}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
 
-                            <span className="dashboard-workout-status">
-                                {workout.status === "COMPLETED"
-                                    ? "Completed"
-                                    : workout.status === "IN_PROGRESS"
-                                        ? "In progress"
-                                        : workout.status}
-                            </span>
+          <div className="dashboard-mission-footer">
+            <span>DISCIPLINE OVER MOTIVATION</span>
+            <span className="dashboard-footer-dot">·</span>
+            <span>ONE DAY AT A TIME</span>
+          </div>
+        </article>
 
-                            <p>
-                                {workout.exercises.reduce(
-                                    (total, exercise) =>
-                                        total +
-                                        exercise.sets.filter(
-                                            (set) => set.isCompleted
-                                        ).length,
-                                    0
-                                )}{" "}
-                                sets completed
-                            </p>
-                        </>
-                    )}
-                </article>
+        {/* Right column */}
+        <div className="dashboard-side-column">
+          {/* Current weight */}
+          <article className="dashboard-panel dashboard-weight-card">
+            <div className="dashboard-side-card-heading">
+              <span className="dashboard-side-icon blue">
+                <Scale size={20} />
+              </span>
 
-                <article className="dashboard-placeholder-card">
-                    <Target size={22} />
+              <div>
+                <h2>Weight check-in</h2>
+                <p>Your latest recorded weight</p>
+              </div>
+            </div>
 
-                    <h3>Daily habits</h3>
+            <div className="dashboard-weight-display">
+              <div>
+                <strong>
+                  {currentWeight != null
+                    ? Number(currentWeight).toFixed(1)
+                    : "—"}
+                </strong>
+                <span>kg</span>
+              </div>
 
-                    {habitsLoading ? (
-                        <p>Loading habits...</p>
-                    ) : habitsError ? (
-                        <p role="alert">{habitsError}</p>
-                    ) : habitStats.total === 0 ? (
-                        <p>No active habits yet.</p>
-                    ) : (
-                        <>
-                            <p className="dashboard-metric-value">
-                                {habitStats.completed}
-                                <span> / {habitStats.total}</span>
-                            </p>
+              <div className="dashboard-weight-badge">
+                <TrendingUp size={15} />
+                <span>
+                  {weightEntry?.entryDate ? "Latest entry" : "No entry yet"}
+                </span>
+              </div>
+            </div>
 
-                            <p>Habits completed today</p>
+            <div className="dashboard-weight-footer">
+              <HeartPulse size={15} />
+              <span>
+                Progress is personal. Focus on your own journey.
+              </span>
+            </div>
+          </article>
 
-                            <div
-                                className="dashboard-habit-progress"
-                                role="progressbar"
-                                aria-label="Today's habit completion"
-                                aria-valuemin={0}
-                                aria-valuemax={habitStats.total}
-                                aria-valuenow={habitStats.completed}
-                            >
-                                <div
-                                    className="dashboard-habit-progress-fill"
-                                    style={{
-                                        width: `${(habitStats.completed /
-                                                habitStats.total) *
-                                            100
-                                            }%`,
-                                    }}
-                                />
-                            </div>
+          {/* Workout */}
+          <article className="dashboard-panel dashboard-workout-card">
+            <div className="dashboard-side-card-heading">
+              <span className="dashboard-side-icon orange">
+                <Dumbbell size={20} />
+              </span>
 
-                            <p className="dashboard-habit-percentage">
-                                {Math.round(
-                                    (habitStats.completed / habitStats.total) * 100
-                                )}% completed
-                            </p>
-                        </>
-                    )}
-                </article>
+              <div>
+                <h2>Your workout</h2>
+                <p>Today's training plan</p>
+              </div>
+            </div>
 
-                <article className="dashboard-placeholder-card">
-                    <Flame size={22} />
-                    <h3>Daily progress</h3>
-                    <p>Your fitness progress will appear here.</p>
-                </article>
-                <article className="dashboard-placeholder-card">
-                    <h3>Current weight</h3>
+            <div className="dashboard-workout-body">
+              <div className="dashboard-workout-title-row">
+                <h3>{workout ? workoutName : "Recovery matters, too."}</h3>
+                {workout && (
+                  <span
+                    className={`dashboard-workout-badge ${workoutCompleted ? "complete" : ""
+                      }`}
+                  >
+                    {workoutCompleted ? "Completed" : "Planned"}
+                  </span>
+                )}
+              </div>
 
-                    {weightLoading ? (
-                        <p>Loading weight...</p>
-                    ) : weightError ? (
-                        <p role="alert">{weightError}</p>
-                    ) : weight === null ? (
-                        <p>Not logged yet</p>
-                    ) : (
-                        <p className="dashboard-metric-value">
-                            {weight} <span>kg</span>
-                        </p>
-                    )}
-                </article>
-            </section>
+              <p>
+                {workout
+                  ? workoutCompleted
+                    ? "You showed up for yourself. Let that momentum carry forward."
+                    : "Your plan is waiting. Focus on good form and consistent effort."
+                  : "No workout scheduled today. Rest, recover, and get ready for your next session."}
+              </p>
+            </div>
+
+            {workout && Array.isArray(workout.exercises) && (
+              <div className="dashboard-workout-meta">
+                <Dumbbell size={14} />
+                <span>
+                  {workout.exercises.length} exercises in this session
+                </span>
+              </div>
+            )}
+          </article>
+
+          {/* Motivation */}
+          <article className="dashboard-panel dashboard-motivation-card">
+            <div className="dashboard-motivation-symbol">
+              <Flame size={25} />
+            </div>
+
+            <span className="dashboard-section-eyebrow">
+              THE ASCEND MINDSET
+            </span>
+
+            <h2>Consistency beats intensity.</h2>
+
+            <p>
+              One meaningful action today. Repeat it tomorrow.
+              Let progress compound over time.
+            </p>
+
+            <div className="dashboard-motivation-bottom">
+              <span>KEEP MOVING FORWARD</span>
+              <ArrowUpRight size={18} />
+            </div>
+          </article>
         </div>
-    );
+      </section>
+
+      {/* Existing quote component */}
+      <section className="dashboard-quote-section">
+        <DailyQuotes />
+      </section>
+    </main>
+  );
 }
+
+export default Dashboard;

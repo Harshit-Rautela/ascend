@@ -211,3 +211,13 @@ model HabitCompletion {
   @@unique([habitId, completionDate])
   @@index([completionDate])
 }
+
+model WaterIntake {
+  id        String   @id @default(cuid())
+  amountMl  Int
+  entryDate DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  @@index([entryDate])
+  @@map("water_intakes")
+}
