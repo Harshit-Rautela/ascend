@@ -3,27 +3,20 @@
 import { useState, useEffect } from "react";
 
 import {
-
     Flame,
-
-    Beef,
-
     Wheat,
-
     Droplets,
-
     Plus,
-
     Utensils, CalendarDays,
-
     ChartNoAxesCombined,
-
     Target,
-
     LayoutDashboard,
-
     Trash2,
-
+    Drumstick, Coffee,
+    Sun,
+    Moon,
+    Cookie,
+    Sparkles,
 } from "lucide-react";
 
 import NutritionHistory from "./NutritionHistory";
@@ -45,6 +38,19 @@ const initialMeals = [
 
 ];
 
+const quickFoodSuggestions = [
+    "3 boiled eggs",
+    "Oats with milk and banana",
+    "Chicken rice bowl",
+    "Greek yogurt",
+];
+
+const mealIcons = {
+    Breakfast: Coffee,
+    Lunch: Sun,
+    Dinner: Moon,
+    Snacks: Cookie,
+};
 
 
 function Nutrition() {
@@ -90,7 +96,17 @@ function Nutrition() {
 
     ];
 
-
+    const recentFoods = [
+        ...new Map(
+            meals
+                .flatMap((meal) => meal.foods)
+                .filter((food) => food.name?.trim())
+                .map((food) => [
+                    food.name.trim().toLowerCase(),
+                    food.name,
+                ])
+        ).values(),
+    ].slice(0, 4);
 
     useEffect(() => {
 
@@ -169,60 +185,18 @@ function Nutrition() {
                             fat: Number(entry.fat),
 
                         })),
-
                 }));
-
-
-
                 setMeals(loadedMeals);
-
-
-
                 console.log("Nutrition meals loaded:", loadedMeals);
-
             } catch (error) {
-
                 console.error("Error loading meals:", error);
-
             }
-
         }
-
-
-
         fetchMeals();
-
     }, []);
 
 
 
-
-
-    // useEffect(() => {
-    //     const today = new Date();
-    //     const date = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"), String(today.getDate()).padStart(2, "0")].join("-");
-    //     const controller = new AbortController();
-
-    //     async function fetchMicronutrients() {
-    //         setMicronutrientsLoading(true);
-    //         setMicronutrientsError("");
-    //         try {
-    //             const response = await fetch(`http://localhost:5000/api/nutrition/micronutrients?date=${date}`, { signal: controller.signal });
-    //             const data = await response.json();
-    //             if (!response.ok) throw new Error(data.error || "Could not load micronutrients.");
-    //             setMicronutrients(Array.isArray(data.nutrients) ? data.nutrients : []);
-    //         } catch (error) {
-    //             if (error.name !== "AbortError") {
-    //                 setMicronutrientsError(error.message || "Micronutrient data is not available yet.");
-    //                 setMicronutrients([]);
-    //             }
-    //         } finally {
-    //             if (!controller.signal.aborted) setMicronutrientsLoading(false);
-    //         }
-    //     }
-    //     fetchMicronutrients();
-    //     return () => controller.abort();
-    // }, []);
 
     async function fetchMicronutrients() {
         const today = new Date();
@@ -875,7 +849,7 @@ function Nutrition() {
 
                         {[
 
-                            { label: "Protein", value: totals.protein, goal: proteinGoal, icon: Beef, unit: "g", style: "protein" },
+                            { label: "Protein", value: totals.protein, goal: proteinGoal, icon: Drumstick, unit: "g", style: "protein" },
 
                             { label: "Carbs", value: totals.carbs, goal: carbsGoal, icon: Wheat, unit: "g", style: "carbs" },
 
@@ -1014,115 +988,190 @@ function Nutrition() {
 
                         <article className="panel nutrition-log-panel">
 
-                            <div className="panel-heading">
-
+                            <div className="nutrition-log-header">
                                 <div>
+                                    <span className="nutrition-log-eyebrow">
+                                        YOUR DAILY FUEL
+                                    </span>
 
                                     <h2>Log your food</h2>
 
-                                    <p>Keep track of what fuels you.</p>
-
+                                    <p>Fuel your goals. Understand your nutrition.</p>
                                 </div>
 
                                 <div className="nutrition-panel-icon">
-
-                                    <Plus size={20} />
-
+                                    <Sparkles size={21} />
                                 </div>
-
                             </div>
 
 
 
 
 
-                            <form className="nutrition-form" onSubmit={analyzeFood}>
+                            <form className="nutrition-form nutrition-premium-form" onSubmit={analyzeFood}>
 
-                                <label>
+                                {/* FOOD DESCRIPTION */}
+                                <div className="nutrition-description-section">
 
-                                    What did you eat?
+                                    <div className="nutrition-input-heading">
+                                        <label htmlFor="food-description">
+                                            Describe your meal
+                                        </label>
 
-                                    <textarea
+                                        <span className="nutrition-ai-status">
+                                            <span className="nutrition-ai-dot" />
+                                            AI POWERED
+                                        </span>
+                                    </div>
 
-                                        value={foodDescription}
+                                    <div className="nutrition-textarea-wrap">
+                                        <textarea
+                                            id="food-description"
+                                            value={foodDescription}
+                                            onChange={(event) => {
+                                                setFoodDescription(event.target.value);
+                                                setAnalysisError("");
+                                            }}
+                                            placeholder="Tell us what you ate, including quantities..."
+                                            rows={3}
+                                            maxLength={500}
+                                            required
+                                        />
 
-                                        onChange={(event) => {
+                                        <div className="nutrition-textarea-footer">
+                                            <span>Be as descriptive as possible</span>
+                                            <span>{foodDescription.length}/500</span>
+                                        </div>
+                                    </div>
 
-                                            setFoodDescription(event.target.value);
+                                </div>
 
-                                            setAnalysisError("");
+                                {/* QUICK SUGGESTIONS */}
+                                <div className="nutrition-suggestions-section">
 
-                                        }}
+                                    <div className="nutrition-section-label">
+                                        <span>QUICK SUGGESTIONS</span>
+                                        <span>Tap to add</span>
+                                    </div>
 
-                                        placeholder="e.g. 6 boiled eggs and 2 slices of toast"
+                                    <div className="nutrition-suggestions">
 
-                                        rows={3}
-
-                                        maxLength={500}
-
-                                        required
-
-                                    />
-
-                                </label>
-
-
-
-                                <label>
-
-                                    Meal
-
-                                    <select
-
-                                        value={selectedMeal}
-
-                                        onChange={(event) => setSelectedMeal(event.target.value)}
-
-                                    >
-
-                                        {initialMeals.map((meal) => (
-
-                                            <option key={meal.id} value={meal.name}>
-
-                                                {meal.name}
-
-                                            </option>
-
+                                        {quickFoodSuggestions.map((suggestion) => (
+                                            <button
+                                                type="button"
+                                                key={suggestion}
+                                                className="nutrition-suggestion-chip"
+                                                onClick={() => {
+                                                    setFoodDescription(suggestion);
+                                                    setAnalysisError("");
+                                                }}
+                                            >
+                                                <Plus size={13} />
+                                                {suggestion}
+                                            </button>
                                         ))}
 
-                                    </select>
+                                    </div>
 
-                                </label>
+                                </div>
 
+                                {/* RECENT FOODS */}
+                                {recentFoods.length > 0 && (
+                                    <div className="nutrition-suggestions-section">
 
+                                        <div className="nutrition-section-label">
+                                            <span>RECENTLY LOGGED</span>
+                                            <span>From today's meals</span>
+                                        </div>
 
-                                {analysisError && (
+                                        <div className="nutrition-suggestions">
 
-                                    <p role="alert" className="nutrition-error">
+                                            {recentFoods.map((food) => (
+                                                <button
+                                                    type="button"
+                                                    key={food}
+                                                    className="nutrition-suggestion-chip nutrition-recent-chip"
+                                                    onClick={() => {
+                                                        setFoodDescription(food);
+                                                        setAnalysisError("");
+                                                    }}
+                                                >
+                                                    <Plus size={13} />
+                                                    {food}
+                                                </button>
+                                            ))}
 
-                                        {analysisError}
+                                        </div>
 
-                                    </p>
-
+                                    </div>
                                 )}
 
+                                {/* MEAL SELECTOR */}
+                                <div className="nutrition-meal-picker">
 
+                                    <div className="nutrition-section-label">
+                                        <span>WHICH MEAL IS THIS?</span>
+                                        <span>Select one</span>
+                                    </div>
 
+                                    <div className="nutrition-meal-options">
+
+                                        {initialMeals.map((meal) => {
+                                            const MealIcon = mealIcons[meal.name];
+
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={meal.id}
+                                                    className={`nutrition-meal-option ${selectedMeal === meal.name ? "active" : ""
+                                                        }`}
+                                                    onClick={() => setSelectedMeal(meal.name)}
+                                                    aria-pressed={selectedMeal === meal.name}
+                                                >
+                                                    {MealIcon && <MealIcon size={18} />}
+
+                                                    <span>{meal.name}</span>
+                                                </button>
+                                            );
+                                        })}
+
+                                    </div>
+
+                                </div>
+
+                                {/* ERROR */}
+                                {analysisError && (
+                                    <p role="alert" className="nutrition-error">
+                                        {analysisError}
+                                    </p>
+                                )}
+
+                                {/* AI ANALYZE BUTTON */}
                                 <button
-
                                     type="submit"
-
-                                    className="nutrition-submit"
-
-                                    disabled={analyzing}
-
+                                    className="nutrition-submit nutrition-analyze-button"
+                                    disabled={analyzing || !foodDescription.trim()}
                                 >
-
-                                    {analyzing ? "Analyzing..." : "✦ Analyze food"}
-
+                                    {analyzing ? (
+                                        <>
+                                            <span className="nutrition-spinner" />
+                                            Analyzing your meal...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles size={17} />
+                                            Analyze my meal
+                                        </>
+                                    )}
                                 </button>
 
+                                <div className="nutrition-form-footer">
+                                    <span>AI-generated estimates</span>
+                                    <span>Review before saving</span>
+                                </div>
+
                             </form>
+
 
 
 
@@ -1306,35 +1355,25 @@ function Nutrition() {
 
 
 
-                                    <button
+                                    <div className="nutrition-preview-actions">
 
-                                        type="button"
+                                        <button
+                                            type="button"
+                                            className="nutrition-submit"
+                                            onClick={confirmFood}
+                                        >
+                                            Confirm and add to {selectedMeal}
+                                        </button>
 
-                                        className="nutrition-submit"
+                                        <button
+                                            type="button"
+                                            className="nutrition-cancel"
+                                            onClick={() => setAnalyzedFood(null)}
+                                        >
+                                            Discard estimate
+                                        </button>
 
-                                        onClick={confirmFood}
-
-                                    >
-
-                                        Confirm and add to {selectedMeal}
-
-                                    </button>
-
-
-
-                                    <button
-
-                                        type="button"
-
-                                        className="nutrition-cancel"
-
-                                        onClick={() => setAnalyzedFood(null)}
-
-                                    >
-
-                                        Discard estimate
-
-                                    </button>
+                                    </div>
 
                                 </div>
 

@@ -1254,3 +1254,447 @@
     padding: 16px;
   }
 }
+
+
+/* ========================================
+   NUTRITION DASHBOARD - VERTICAL LAYOUT
+======================================== */
+
+.nutrition-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  align-items: stretch;
+  width: 100%;
+}
+
+/* Both panels occupy the full available width */
+.nutrition-log-panel,
+.meals-panel {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Food logger spacing */
+.nutrition-log-panel {
+  padding: 26px;
+}
+
+.nutrition-form {
+  width: 100%;
+}
+
+/* Meals section */
+.meals-panel {
+  padding: 26px;
+}
+
+.nutrition-meals-list {
+  width: 100%;
+  margin-top: 16px;
+}
+
+/* Keep long food names from breaking the layout */
+.nutrition-food-item {
+  min-width: 0;
+}
+
+.nutrition-food-item > div {
+  min-width: 0;
+}
+
+.nutrition-food-item strong,
+.nutrition-food-item span {
+  overflow-wrap: anywhere;
+}
+
+/* Responsive spacing */
+@media (max-width: 560px) {
+  .nutrition-content-grid {
+    gap: 16px;
+  }
+
+  .nutrition-log-panel,
+  .meals-panel {
+    padding: 18px;
+  }
+}
+
+/* AI Preview - Equal Width Action Buttons */
+
+.nutrition-preview-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    width: 100%;
+    margin-top: 18px;
+}
+
+.nutrition-preview-actions .nutrition-submit,
+.nutrition-preview-actions .nutrition-cancel {
+    width: 100%;
+    min-width: 0;
+    min-height: 54px;
+    margin: 0;
+    padding: 12px 16px;
+    box-sizing: border-box;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    white-space: normal;
+}
+
+.nutrition-preview-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* =========================================
+   ASCEND - PREMIUM FOOD LOGGER
+========================================= */
+
+.nutrition-log-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.nutrition-log-header h2 {
+    margin: 7px 0;
+    color: #f2f5ed;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.nutrition-log-header p {
+    margin: 0;
+    color: #969d8e;
+    font-size: 13px;
+}
+
+.nutrition-log-eyebrow {
+    color: #c6f36a;
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 1.5px;
+}
+
+.nutrition-panel-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    flex-shrink: 0;
+    border: 1px solid #c6f36a25;
+    border-radius: 14px;
+    background: #c6f36a14;
+    color: #c6f36a;
+}
+
+/* Form layout */
+
+.nutrition-premium-form {
+    display: flex;
+    flex-direction: column;
+    gap: 23px;
+    width: 100%;
+}
+
+.nutrition-description-section {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+}
+
+.nutrition-input-heading,
+.nutrition-section-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.nutrition-input-heading label {
+    color: #d9dfd1;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.nutrition-ai-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #a8b39a;
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 1px;
+}
+
+.nutrition-ai-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #c6f36a;
+    box-shadow: 0 0 9px #c6f36a80;
+}
+
+/* Textarea */
+
+.nutrition-textarea-wrap {
+    position: relative;
+    padding: 14px;
+    border: 1px solid #363a31;
+    border-radius: 14px;
+    background: #20221e;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.nutrition-textarea-wrap:focus-within {
+    border-color: #9fca4d;
+    box-shadow: 0 0 0 3px #c6f36a12;
+}
+
+.nutrition-textarea-wrap textarea {
+    display: block;
+    width: 100%;
+    min-height: 90px;
+    padding: 0;
+    resize: vertical;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #f2f5ed;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.nutrition-textarea-wrap textarea::placeholder {
+    color: #747c6d;
+}
+
+.nutrition-textarea-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    color: #7f8878;
+    font-size: 10px;
+}
+
+/* Section labels */
+
+.nutrition-section-label > span:first-child {
+    color: #aab39f;
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 1.2px;
+}
+
+.nutrition-section-label > span:last-child {
+    color: #737d6c;
+    font-size: 10px;
+}
+
+/* Suggestions */
+
+.nutrition-suggestions-section {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+}
+
+.nutrition-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.nutrition-suggestion-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 35px;
+    padding: 8px 12px;
+    border: 1px solid #373e31;
+    border-radius: 999px;
+    background: #22261f;
+    color: #c4cbbd;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all .18s ease;
+}
+
+.nutrition-suggestion-chip svg {
+    color: #c6f36a;
+    flex-shrink: 0;
+}
+
+.nutrition-suggestion-chip:hover {
+    border-color: #829d4d;
+    background: #2b3323;
+    color: #f2f5ed;
+    transform: translateY(-1px);
+}
+
+.nutrition-recent-chip {
+    background: #1b201a;
+}
+
+/* Meal selection */
+
+.nutrition-meal-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+}
+
+.nutrition-meal-options {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.nutrition-meal-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-width: 0;
+    min-height: 83px;
+    padding: 12px 7px;
+    border: 1px solid #363b31;
+    border-radius: 13px;
+    background: #20221e;
+    color: #aab19f;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s ease;
+}
+
+.nutrition-meal-option svg {
+    color: #8e9882;
+    transition: color .2s ease;
+}
+
+.nutrition-meal-option:hover {
+    border-color: #738a49;
+    background: #272d22;
+    color: #f2f5ed;
+}
+
+.nutrition-meal-option.active {
+    border-color: #b3df59;
+    background: #c6f36a14;
+    color: #d5f78f;
+    box-shadow: inset 0 0 0 1px #c6f36a16;
+}
+
+.nutrition-meal-option.active svg {
+    color: #c6f36a;
+}
+
+/* Analyze button */
+
+.nutrition-analyze-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 54px;
+    border-radius: 13px;
+    font-size: 14px;
+    font-weight: 700;
+    transition: transform .2s ease, filter .2s ease;
+}
+
+.nutrition-analyze-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+}
+
+.nutrition-analyze-button:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+.nutrition-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #17191250;
+    border-top-color: #171912;
+    border-radius: 50%;
+    animation: nutrition-spin .7s linear infinite;
+}
+
+@keyframes nutrition-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Footer */
+
+.nutrition-form-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    color: #778070;
+    font-size: 10px;
+}
+
+.nutrition-form-footer span + span::before {
+    content: "·";
+    margin-right: 7px;
+}
+
+/* Responsive */
+
+@media (max-width: 600px) {
+    .nutrition-meal-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .nutrition-log-header h2 {
+        font-size: 18px;
+    }
+
+    .nutrition-premium-form {
+        gap: 19px;
+    }
+
+    .nutrition-suggestions {
+        gap: 7px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nutrition-spinner {
+        animation: none;
+    }
+
+    .nutrition-suggestion-chip,
+    .nutrition-meal-option,
+    .nutrition-analyze-button {
+        transition: none;
+    }
+}

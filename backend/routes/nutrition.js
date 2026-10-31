@@ -2,10 +2,36 @@
 import { Router } from "express";
 import { analyzeFood } from "../services/nutritionAI.js";
 import prisma from "../prisma.js";
+import redis from "../redis.js";
 
 const router = Router();
 
 const validMealTypes = ["Breakfast", "Lunch", "Dinner", "Snacks"];
+
+const NUTRITION_CACHE_TTL = 24 * 60 * 60;
+
+
+function secondsUntilMidnight() {
+  const now = new Date();
+
+  const midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+
+  return Math.ceil((midnight.getTime() - now.getTime()) / 1000);
+}
+
+function nutritionCacheKey(date) {
+  return `nutrition:${date}`;
+}
+
+async function invalidateNutritionCache(date) {
+  try {
+    await redis.del(nutritionCacheKey(date));
+  } catch (error) {
+    // A cache failure must not undo a successful database write.
+    console.error("Could not invalidate nutrition cache:", error.message);
+  }
+}
 
 router.post("/analyze", async (req, res) => {
   try {
@@ -201,6 +227,8 @@ router.post("/", async (req, res) => {
 
       return createdEntry;
     });
+    await invalidateNutritionCache(entryDate);
+
 
     return res.status(201).json(entry);
   } catch (error) {
@@ -325,6 +353,23 @@ router.get("/", async (req, res) => {
     const endDate = new Date(startDate);
     endDate.setUTCDate(endDate.getUTCDate() + 1);
 
+    const cacheKey = nutritionCacheKey(dateString);
+
+    try {
+      const cachedData = await redis.get(cacheKey);
+
+      if (cachedData !== null) {
+        try {
+          return res.json(JSON.parse(cachedData));
+        } catch {
+          await redis.del(cacheKey).catch(() => { });
+        }
+      }
+    } catch (error) {
+      console.error("Nutrition cache read failed:", error.message);
+    }
+
+
     const entries = await prisma.nutritionEntry.findMany({
       where: {
         entryDate: {
@@ -335,7 +380,20 @@ router.get("/", async (req, res) => {
       orderBy: { createdAt: "asc" },
     });
 
+
+    try {
+      await redis.set(
+        cacheKey,
+        JSON.stringify(entries),
+        "EX",
+        secondsUntilMidnight()
+      );
+    } catch (error) {
+      console.error("Nutrition cache write failed:", error.message);
+    }
+
     return res.json(entries);
+
   } catch (error) {
     console.error("Error fetching nutrition entries:", error);
     return res.status(500).json({ error: "Failed to fetch nutrition entries." });
@@ -413,48 +471,91 @@ router.get("/micronutrients", async (req, res) => {
   }
 });
 // DELETE /api/nutrition/:id — delete a food entry
+// router.delete("/:id", async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const existingEntry = await prisma.nutritionEntry.findUnique({
+//       where: { id },
+//     });
+
+//     if (!existingEntry) {
+//       return res.status(404).json({ error: "Nutrition entry not found." });
+//     }
+
+//     await prisma.nutritionEntry.delete({ where: { id } });
+
+//     return res.json({ message: "Nutrition entry deleted successfully." });
+//   } catch (error) {
+//     console.error("Error deleting nutrition entry:", error);
+//     return res.status(500).json({ error: "Failed to delete nutrition entry." });
+//   }
+// });
+
+
+// // DELETE /api/nutrition/:id — delete one nutrition entry
+// router.delete("/:id", async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const deletedEntry = await prisma.nutritionEntry.delete({
+//       where: { id },
+//     });
+
+//     return res.status(200).json({
+//       message: "Nutrition entry deleted successfully.",
+//       entry: deletedEntry,
+//     });
+//   } catch (error) {
+//     if (error.code === "P2025") {
+//       return res.status(404).json({
+//         error: "Nutrition entry not found.",
+//       });
+//     }
+
+//     console.error("Error deleting nutrition entry:", error);
+
+//     return res.status(500).json({
+//       error: "Failed to delete nutrition entry.",
+//     });
+//   }
+// });
+
+
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
     const existingEntry = await prisma.nutritionEntry.findUnique({
       where: { id },
+      select: {
+        id: true,
+        entryDate: true,
+      },
     });
 
     if (!existingEntry) {
-      return res.status(404).json({ error: "Nutrition entry not found." });
-    }
-
-    await prisma.nutritionEntry.delete({ where: { id } });
-
-    return res.json({ message: "Nutrition entry deleted successfully." });
-  } catch (error) {
-    console.error("Error deleting nutrition entry:", error);
-    return res.status(500).json({ error: "Failed to delete nutrition entry." });
-  }
-});
-
-
-// DELETE /api/nutrition/:id — delete one nutrition entry
-router.delete("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const deletedEntry = await prisma.nutritionEntry.delete({
-      where: { id },
-    });
-
-    return res.status(200).json({
-      message: "Nutrition entry deleted successfully.",
-      entry: deletedEntry,
-    });
-  } catch (error) {
-    if (error.code === "P2025") {
       return res.status(404).json({
         error: "Nutrition entry not found.",
       });
     }
 
+    await prisma.nutritionEntry.delete({
+      where: { id },
+    });
+
+    // Get the date of the deleted food.
+    const date = new Date(existingEntry.entryDate)
+      .toISOString()
+      .slice(0, 10);
+
+    // Clear the cache for that date.
+    await invalidateNutritionCache(date);
+
+    return res.status(200).json({
+      message: "Nutrition entry deleted successfully.",
+    });
+  } catch (error) {
     console.error("Error deleting nutrition entry:", error);
 
     return res.status(500).json({
