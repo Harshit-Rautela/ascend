@@ -182,6 +182,7 @@ micronutrient reference values:
   { "key": "vitamin_b3", "amount": 0.10 },
   { "key": "vitamin_b5", "amount": 2.10 },
   { "key": "vitamin_b6", "amount": 0.18 },
+  { "key": "vitamin_b7", "amount": 30 },
   { "key": "vitamin_b9", "amount": 66 },
   { "key": "vitamin_b12", "amount": 1.67 },
   { "key": "vitamin_c", "amount": 0 },
@@ -198,6 +199,8 @@ micronutrient reference values:
   { "key": "copper", "amount": 0.02 },
   { "key": "manganese", "amount": 0.04 },
   { "key": "selenium", "amount": 46.2 }
+  { "key": "choline", "amount": 440 }
+
 ]
 
 Important:

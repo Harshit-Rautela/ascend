@@ -11,6 +11,7 @@ import habitsRouter from "./routes/habits.js";
 import statsRouter from "./routes/stats.js";
 import quoteRoutes from "./routes/quotes.js";
 import waterRoutes from "./routes/waterIntake.js";
+import { connectRedis } from "./redis.js";
 
 
 
@@ -127,7 +128,12 @@ app.get("/api/weight", async (req, res) => {
 });
 
 
-app.listen(PORT, () => {
-  console.log(`Ascend server running on port ${PORT}`);
-});
+async function startServer() {
+    await connectRedis();
 
+    app.listen(PORT, () => {
+        console.log(`Ascend server running on port ${PORT}`);
+    });
+}
+
+startServer();

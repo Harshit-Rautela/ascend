@@ -17,6 +17,7 @@ import {
     Moon,
     Cookie,
     Sparkles,
+    ChevronDown
 } from "lucide-react";
 
 import NutritionHistory from "./NutritionHistory";
@@ -56,6 +57,7 @@ const mealIcons = {
 function Nutrition() {
 
     const [meals, setMeals] = useState(initialMeals);
+    const [expandedMeals, setExpandedMeals] = useState({});
 
     const [selectedMeal, setSelectedMeal] = useState("Breakfast");
 
@@ -81,7 +83,7 @@ function Nutrition() {
     const [micronutrients, setMicronutrients] = useState([]);
     const [micronutrientsLoading, setMicronutrientsLoading] = useState(true);
     const [micronutrientsError, setMicronutrientsError] = useState("");
-
+    const [activeMicronutrientFilter, setActiveMicronutrientFilter] = useState("All");
 
 
     const nutritionTabs = [
@@ -459,10 +461,17 @@ function Nutrition() {
 
 
     function progress(value, goal) {
+        if (!Number.isFinite(goal) || goal <= 0) return 0;
 
-        return Math.min(100, (value / goal) * 100);
-
+        return Math.min(100, Math.max(0, (value / goal) * 100));
     }
+
+    function goalPercentage(value, goal) {
+        if (!Number.isFinite(goal) || goal <= 0) return 0;
+
+        return Math.round((value / goal) * 100);
+    }
+
 
 
 
@@ -569,7 +578,262 @@ function Nutrition() {
     }
 
 
+    const macroProgress = [
+        {
+            label: "Protein",
+            value: totals.protein,
+            goal: proteinGoal,
+            icon: Drumstick,
+            unit: "g",
+            style: "protein",
+        },
+        {
+            label: "Carbs",
+            value: totals.carbs,
+            goal: carbsGoal,
+            icon: Wheat,
+            unit: "g",
+            style: "carbs",
+        },
+        {
+            label: "Fat",
+            value: totals.fat,
+            goal: fatGoal,
+            icon: Droplets,
+            unit: "g",
+            style: "fat",
+        },
+    ];
 
+    const nutritionMetrics = [
+        {
+            label: "Calories",
+            value: totals.calories,
+            goal: calorieGoal,
+            unit: "kcal",
+            style: "calorie",
+        },
+        ...macroProgress,
+    ];
+
+    // Compare macro progress against their respective daily targets.
+    const biggestMacroGap = [...macroProgress].sort(
+        (a, b) => goalPercentage(a.value, a.goal) -
+            goalPercentage(b.value, b.goal)
+    )[0];
+
+    // Macro distribution is based on calories contributed by each macro.
+    // Protein = 4 kcal/g, Carbs = 4 kcal/g, Fat = 9 kcal/g.
+    const macroCalories = {
+        protein: totals.protein * 4,
+        carbs: totals.carbs * 4,
+        fat: totals.fat * 9,
+    };
+
+    const totalMacroCalories =
+        macroCalories.protein +
+        macroCalories.carbs +
+        macroCalories.fat;
+
+    const macroDistribution = [
+        {
+            label: "Protein",
+            grams: totals.protein,
+            calories: macroCalories.protein,
+            percentage: totalMacroCalories > 0
+                ? (macroCalories.protein / totalMacroCalories) * 100
+                : 0,
+            style: "protein",
+        },
+        {
+            label: "Carbs",
+            grams: totals.carbs,
+            calories: macroCalories.carbs,
+            percentage: totalMacroCalories > 0
+                ? (macroCalories.carbs / totalMacroCalories) * 100
+                : 0,
+            style: "carbs",
+        },
+        {
+            label: "Fat",
+            grams: totals.fat,
+            calories: macroCalories.fat,
+            percentage: totalMacroCalories > 0
+                ? (macroCalories.fat / totalMacroCalories) * 100
+                : 0,
+            style: "fat",
+        },
+    ];
+    // Normalize categories returned by the backend.
+    function getMicronutrientCategory(nutrient) {
+        const category = String(nutrient.category || "").toLowerCase();
+
+        if (category.includes("vitamin")) return "Vitamins";
+        if (category.includes("mineral")) return "Minerals";
+
+        return "Other";
+    }
+
+    const micronutrientCategories = [
+        "All",
+        "Vitamins",
+        "Minerals",
+        "Other",
+    ];
+
+    const micronutrientCounts = {
+        All: micronutrients.length,
+        Vitamins: micronutrients.filter(
+            (item) => getMicronutrientCategory(item) === "Vitamins"
+        ).length,
+        Minerals: micronutrients.filter(
+            (item) => getMicronutrientCategory(item) === "Minerals"
+        ).length,
+        Other: micronutrients.filter(
+            (item) => getMicronutrientCategory(item) === "Other"
+        ).length,
+    };
+
+    const filteredMicronutrients =
+        activeMicronutrientFilter === "All"
+            ? micronutrients
+            : micronutrients.filter(
+                (item) =>
+                    getMicronutrientCategory(item) === activeMicronutrientFilter
+            );
+
+    <section className="nutrition-overview">
+        <div className="nutrition-overview-heading">
+            <h2>Daily nutrition overview</h2>
+            <span>Today's progress</span>
+        </div>
+
+        <div className="nutrition-summary-grid">
+            {nutritionMetrics.map((item) => {
+                const Icon = item.icon;
+                const percentage = goalPercentage(item.value, item.goal);
+                const remaining = Math.max(0, item.goal - item.value);
+
+                return (
+                    <article
+                        className={`nutrition-card nutrition-card-${item.style}`}
+                        key={item.label}
+                    >
+                        <div className="nutrition-card-heading">
+                            <span>{item.label}</span>
+
+                            {Icon && <Icon size={19} />}
+
+                            <span className="nutrition-percentage">
+                                {percentage.toFixed(1)}%
+                            </span>
+                        </div>
+
+                        <div className="nutrition-big-number">
+                            {item.label === "Calories"
+                                ? Math.round(item.value).toLocaleString("en-IN")
+                                : Math.round(item.value)}
+                            <span> {item.unit}</span>
+                        </div>
+
+                        <div className="nutrition-track">
+                            <div
+                                className={`nutrition-fill ${item.style}-fill`}
+                                style={{
+                                    width: `${progress(item.value, item.goal)}%`,
+                                }}
+                            />
+                        </div>
+
+                        <div className="nutrition-progress-label">
+                            {remaining > 0
+                                ? `${item.label === "Calories"
+                                    ? Math.round(remaining).toLocaleString("en-IN")
+                                    : Math.round(remaining)} ${item.unit} remaining`
+                                : "Daily target reached"}
+                        </div>
+                    </article>
+                );
+            })}
+        </div>
+
+        {/* Today's insight */}
+        <section className="nutrition-daily-insight">
+            <div className="nutrition-insight-heading">
+                <Sparkles size={19} />
+                <h3>Today's insight</h3>
+            </div>
+
+            {totalMacroCalories === 0 ? (
+                <p>Log your first meal to see how your nutrition is progressing.</p>
+            ) : biggestMacroGap &&
+                goalPercentage(biggestMacroGap.value, biggestMacroGap.goal) < 100 ? (
+                <p>
+                    {biggestMacroGap.label} is currently your biggest gap
+                    relative to its daily target.
+                </p>
+            ) : (
+                <p>
+                    You've reached all your daily macro targets. Keep up the good work!
+                </p>
+            )}
+        </section>
+
+        {/* Macro distribution */}
+        <section className="nutrition-macro-distribution">
+            <div className="nutrition-distribution-heading">
+                <div>
+                    <h3>Macro distribution</h3>
+                    <p>Based on calories from today's macros</p>
+                </div>
+
+                <span>Today's intake</span>
+            </div>
+
+            {totalMacroCalories > 0 ? (
+                <>
+                    <div
+                        className="nutrition-distribution-bar"
+                        role="img"
+                        aria-label={macroDistribution
+                            .map((macro) =>
+                                `${macro.label}: ${Math.round(macro.percentage)}%`
+                            )
+                            .join(", ")}
+                    >
+                        {macroDistribution.map((macro) => (
+                            <div
+                                key={macro.label}
+                                className={`nutrition-distribution-segment ${macro.style}`}
+                                style={{
+                                    width: `${macro.percentage}%`,
+                                }}
+                            />
+                        ))}
+                    </div>
+
+                    <div className="nutrition-distribution-legend">
+                        {macroDistribution.map((macro) => (
+                            <div key={macro.label}>
+                                <span>
+                                    <i className={macro.style} />
+                                    {macro.label}
+                                </span>
+
+                                <strong>
+                                    {Math.round(macro.percentage)}%
+                                </strong>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            ) : (
+                <p className="nutrition-distribution-empty">
+                    Your macro distribution will appear after you log food.
+                </p>
+            )}
+        </section>
+    </section>
 
 
     async function confirmFood() {
@@ -797,192 +1061,373 @@ function Nutrition() {
 
                 <>
 
-                    <div className="nutrition-summary-grid">
+                    <section className="nutrition-overview">
+                        <div className="nutrition-overview-heading">
+                            <h2>Daily nutrition overview</h2>
+                            <span>Today's progress</span>
+                        </div>
 
-                        <article className="nutrition-card calorie-card">
+                        <div className="nutrition-summary-grid">
+                            {nutritionMetrics.map((item) => {
+                                const Icon = item.icon;
+                                const percentage = goalPercentage(item.value, item.goal);
+                                const remaining = Math.max(0, item.goal - item.value);
 
-                            <div className="nutrition-card-heading">
+                                return (
+                                    <article
+                                        className={`nutrition-card nutrition-card-${item.style}`}
+                                        key={item.label}
+                                    >
+                                        <div className="nutrition-card-heading">
+                                            <span>{item.label}</span>
 
-                                <span>Calories consumed</span>
+                                            {Icon && <Icon size={19} />}
 
-                                <Flame size={20} />
+                                            <span className="nutrition-percentage">
+                                                {percentage.toFixed(1)}%
+                                            </span>
+                                        </div>
 
+                                        <div className="nutrition-big-number">
+                                            {item.label === "Calories"
+                                                ? Math.round(item.value).toLocaleString("en-IN")
+                                                : Math.round(item.value)}
+                                            <span> {item.unit}</span>
+                                        </div>
+
+                                        <div className="nutrition-track">
+                                            <div
+                                                className={`nutrition-fill ${item.style}-fill`}
+                                                style={{
+                                                    width: `${progress(item.value, item.goal)}%`,
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="nutrition-progress-label">
+                                            {remaining > 0
+                                                ? `${item.label === "Calories"
+                                                    ? Math.round(remaining).toLocaleString("en-IN")
+                                                    : Math.round(remaining)} ${item.unit} remaining`
+                                                : "Daily target reached"}
+                                        </div>
+                                    </article>
+                                );
+                            })}
+                        </div>
+
+                        {/* Today's insight */}
+                        {/* <section className="nutrition-daily-insight">
+                            <div className="nutrition-insight-heading">
+                                <Sparkles size={19} />
+                                <h3>Today's insight</h3>
                             </div>
 
-                            <div className="nutrition-big-number">
+                            {totalMacroCalories === 0 ? (
+                                <p>Log your first meal to see how your nutrition is progressing.</p>
+                            ) : biggestMacroGap &&
+                                goalPercentage(biggestMacroGap.value, biggestMacroGap.goal) < 100 ? (
+                                <p>
+                                    {biggestMacroGap.label} is currently your biggest gap
+                                    relative to its daily target.
+                                </p>
+                            ) : (
+                                <p>
+                                    You've reached all your daily macro targets. Keep up the good work!
+                                </p>
+                            )}
+                        </section> */}
 
-                                {totals.calories.toLocaleString("en-IN")}
+                        {/* Macro distribution */}
+                        <section className="nutrition-macro-distribution">
+                            <div className="nutrition-distribution-heading">
+                                <div>
+                                    <h3>Macro distribution</h3>
+                                    <p>Based on calories from today's macros</p>
+                                </div>
 
-                                <span> kcal</span>
-
+                                <span>Today's intake</span>
                             </div>
 
-                            <div className="nutrition-muted">
-
-                                Target: {calorieGoal.toLocaleString("en-IN")} kcal
-
-                            </div>
-
-                            <div className="nutrition-track">
-
-                                <div
-
-                                    className="nutrition-fill calorie-fill"
-
-                                    style={{ width: `${progress(totals.calories, calorieGoal)}%` }}
-
-                                />
-
-                            </div>
-
-                            <div className="nutrition-progress-label">
-
-                                {Math.max(0, calorieGoal - totals.calories).toLocaleString("en-IN")}
-
-                                {" "}kcal remaining
-
-                            </div>
-
-                        </article>
-
-
-
-                        {[
-
-                            { label: "Protein", value: totals.protein, goal: proteinGoal, icon: Drumstick, unit: "g", style: "protein" },
-
-                            { label: "Carbs", value: totals.carbs, goal: carbsGoal, icon: Wheat, unit: "g", style: "carbs" },
-
-                            { label: "Fat", value: totals.fat, goal: fatGoal, icon: Droplets, unit: "g", style: "fat" },
-
-                        ].map((item) => {
-
-                            const Icon = item.icon;
-
-
-
-                            return (
-
-                                <article className="nutrition-card" key={item.label}>
-
-                                    <div className="nutrition-card-heading">
-
-                                        <span>{item.label}</span>
-
-                                        <Icon size={20} />
-
+                            {totalMacroCalories > 0 ? (
+                                <>
+                                    <div
+                                        className="nutrition-distribution-bar"
+                                        role="img"
+                                        aria-label={macroDistribution
+                                            .map((macro) =>
+                                                `${macro.label}: ${Math.round(macro.percentage)}%`
+                                            )
+                                            .join(", ")}
+                                    >
+                                        {macroDistribution.map((macro) => (
+                                            <div
+                                                key={macro.label}
+                                                className={`nutrition-distribution-segment ${macro.style}`}
+                                                style={{
+                                                    width: `${macro.percentage}%`,
+                                                }}
+                                            />
+                                        ))}
                                     </div>
 
-                                    <div className="nutrition-big-number">
+                                    <div className="nutrition-distribution-legend">
+                                        {macroDistribution.map((macro) => (
+                                            <div key={macro.label}>
+                                                <span>
+                                                    <i className={macro.style} />
+                                                    {macro.label}
+                                                </span>
 
-                                        {Math.round(item.value)}
-
-                                        <span> {item.unit}</span>
-
+                                                <strong>
+                                                    {Math.round(macro.percentage)}%
+                                                </strong>
+                                            </div>
+                                        ))}
                                     </div>
-
-                                    <div className="nutrition-muted">
-
-                                        Target: {item.goal} {item.unit}
-
-                                    </div>
-
-                                    <div className="nutrition-track">
-
-                                        <div
-
-                                            className={`nutrition-fill ${item.style}-fill`}
-
-                                            style={{ width: `${progress(item.value, item.goal)}%` }}
-
-                                        />
-
-                                    </div>
-
-                                    <div className="nutrition-progress-label">
-
-                                        {Math.max(0, item.goal - Math.round(item.value))} {item.unit} remaining
-
-                                    </div>
-
-                                </article>
-
-                            );
-
-                        })}
-
-                    </div>
+                                </>
+                            ) : (
+                                <p className="nutrition-distribution-empty">
+                                    Your macro distribution will appear after you log food.
+                                </p>
+                            )}
+                        </section>
+                    </section>
 
 
 
-                    <section className="panel micronutrient-panel" aria-labelledby="micronutrient-heading">
+
+                    <section
+                        className="panel micronutrient-panel"
+                        aria-labelledby="micronutrient-heading"
+                    >
+                        {/* Header */}
                         <div className="panel-heading micronutrient-heading">
                             <div>
                                 <h2 id="micronutrient-heading">Micronutrients</h2>
                                 <p>Vitamins, minerals and other essential nutrients</p>
                             </div>
-                            <span className="micronutrient-source-note">Food + supplements</span>
+
+                            <span className="micronutrient-source-note">
+                                <span className="micronutrient-source-dot" />
+                                Food + supplements
+                            </span>
                         </div>
+
                         {micronutrientsLoading ? (
-                            <p className="nutrition-muted">Loading micronutrient totals…</p>
+
+                            <p className="nutrition-muted">
+                                Loading micronutrient totals…
+                            </p>
+
                         ) : micronutrientsError ? (
+
                             <div className="micronutrient-empty" role="status">
-                                <p>Micronutrient totals are not connected yet.</p>
+                                <p>Could not load micronutrient totals.</p>
                                 <span>{micronutrientsError}</span>
                             </div>
+
                         ) : micronutrients.length === 0 ? (
+
                             <div className="micronutrient-empty">
                                 <p>No micronutrient data available for today yet.</p>
-                                <span>Connect food-composition and supplement data to see daily totals here.</span>
+                                <span>
+                                    Your nutrient totals will appear here once food
+                                    or supplement data is available.
+                                </span>
                             </div>
+
                         ) : (
-                            <div className="micronutrient-scroll" aria-label="Daily micronutrient totals">
-                                {micronutrients.map((nutrient) => {
-                                    const amount = Number(nutrient.amount);
-                                    const target = Number(nutrient.target);
-                                    const hasAmount = nutrient.amount != null && Number.isFinite(amount);
-                                    const hasTarget = nutrient.target != null && Number.isFinite(target) && target > 0;
-                                    const percentage = hasAmount && hasTarget ? Math.min(100, (amount / target) * 100) : 0;
-                                    return (
 
-                                        <article className="micronutrient-card" key={nutrient.key || nutrient.name}>
-                                            <div className="micronutrient-card-top">
-                                                <span>{nutrient.name}</span>
-                                                <span className="micronutrient-category">
-                                                    {nutrient.category || "Nutrient"}
-                                                </span>
-                                            </div>
+                            <>
+                                {/* Category filters */}
+                                <div
+                                    className="micronutrient-filters"
+                                    role="group"
+                                    aria-label="Filter micronutrients"
+                                >
+                                    {micronutrientCategories.map((category) => (
 
-                                            <div className="micronutrient-amount">
-                                                {hasAmount
-                                                    ? amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })
-                                                    : "—"}
-                                                <span>{nutrient.unit || ""}</span>
-                                            </div>
+                                        <button
+                                            key={category}
+                                            type="button"
+                                            className={`micronutrient-filter ${activeMicronutrientFilter === category
+                                                    ? "active"
+                                                    : ""
+                                                }`}
+                                            onClick={() =>
+                                                setActiveMicronutrientFilter(category)
+                                            }
+                                            aria-pressed={
+                                                activeMicronutrientFilter === category
+                                            }
+                                        >
+                                            {category}
 
-                                            <div className="nutrition-track micronutrient-track">
-                                                <div
-                                                    className="nutrition-fill micronutrient-fill"
-                                                    style={{ width: `${percentage}%` }}
-                                                />
-                                            </div>
+                                            <span>
+                                                {micronutrientCounts[category]}
+                                            </span>
+                                        </button>
 
-                                            <p className="micronutrient-percentage">
-                                                {hasTarget ? `${Math.round(percentage)}% of daily target` : "No target set"}
-                                            </p>
+                                    ))}
+                                </div>
 
-                                            <p className="micronutrient-target">
-                                                {hasTarget
-                                                    ? `Target: ${target.toLocaleString("en-IN")} ${nutrient.unit || ""}`
-                                                    : "No target set"}
-                                            </p>
-                                        </article>
+                                {/* Nutrient cards */}
+                                {filteredMicronutrients.length > 0 ? (
 
-                                    );
-                                })}
-                            </div>
+                                    <div
+                                        className="micronutrient-scroll"
+                                        aria-label="Daily micronutrient totals"
+                                    >
+
+                                        {filteredMicronutrients.map((nutrient) => {
+
+                                            const amount =
+                                                nutrient.amount === null ||
+                                                    nutrient.amount === undefined ||
+                                                    nutrient.amount === ""
+                                                    ? null
+                                                    : Number(nutrient.amount);
+
+                                            const target =
+                                                nutrient.target === null ||
+                                                    nutrient.target === undefined ||
+                                                    nutrient.target === ""
+                                                    ? null
+                                                    : Number(nutrient.target);
+
+                                            const hasAmount =
+                                                amount !== null &&
+                                                Number.isFinite(amount);
+
+                                            const hasTarget =
+                                                target !== null &&
+                                                Number.isFinite(target) &&
+                                                target > 0;
+
+                                            const hasProgress = hasAmount && hasTarget;
+
+                                            const actualPercentage = hasProgress
+                                                ? (amount / target) * 100
+                                                : null;
+
+                                            const barPercentage = hasProgress
+                                                ? Math.min(100, actualPercentage)
+                                                : 0;
+
+                                            const status = !hasAmount
+                                                ? "unavailable"
+                                                : !hasTarget
+                                                    ? "no-target"
+                                                    : actualPercentage >= 100
+                                                        ? "complete"
+                                                        : "progress";
+
+                                            const category =
+                                                getMicronutrientCategory(nutrient);
+
+                                            return (
+
+                                                <article
+                                                    className={`micronutrient-card micronutrient-${status}`}
+                                                    key={nutrient.key || nutrient.name}
+                                                >
+
+                                                    <div className="micronutrient-card-header">
+
+                                                        <div className="micronutrient-card-top">
+                                                            <span>{nutrient.name}</span>
+
+                                                            <span className="micronutrient-category">
+                                                                {category}
+                                                            </span>
+                                                        </div>
+
+                                                        {hasProgress && (
+                                                            <span className="micronutrient-percent-badge">
+                                                                {Math.round(actualPercentage)}%
+                                                            </span>
+                                                        )}
+
+                                                    </div>
+
+                                                    <div className="micronutrient-amount">
+                                                        {hasAmount
+                                                            ? amount.toLocaleString("en-IN", {
+                                                                maximumFractionDigits: 2,
+                                                            })
+                                                            : "—"}
+
+                                                        <span>{nutrient.unit || ""}</span>
+                                                    </div>
+
+                                                    {hasProgress ? (
+
+                                                        <>
+                                                            <div
+                                                                className="micronutrient-progress-track"
+                                                                role="progressbar"
+                                                                aria-label={`${nutrient.name} daily target`}
+                                                                aria-valuenow={Math.min(
+                                                                    100,
+                                                                    Math.round(actualPercentage)
+                                                                )}
+                                                                aria-valuemin={0}
+                                                                aria-valuemax={100}
+                                                            >
+                                                                <div
+                                                                    className="micronutrient-progress-fill"
+                                                                    style={{
+                                                                        width: `${barPercentage}%`,
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            <div className="micronutrient-card-footer">
+
+                                                                <span>
+                                                                    {actualPercentage >= 100
+                                                                        ? "Target reached"
+                                                                        : `${Math.round(actualPercentage)}% of target`}
+                                                                </span>
+
+                                                                <span>
+                                                                    Target: {target.toLocaleString("en-IN")} {nutrient.unit || ""}
+                                                                </span>
+
+                                                            </div>
+                                                        </>
+
+                                                    ) : (
+
+                                                        <div className="micronutrient-unavailable">
+                                                            {!hasAmount
+                                                                ? "Amount unavailable"
+                                                                : "No target configured"}
+                                                        </div>
+
+                                                    )}
+
+                                                </article>
+
+                                            );
+                                        })}
+
+                                    </div>
+
+                                ) : (
+
+                                    <div className="micronutrient-filter-empty">
+                                        No nutrients found in this category.
+                                    </div>
+
+                                )}
+                            </>
+
                         )}
+
                     </section>
+
 
                     <div className="nutrition-content-grid">
 
@@ -1047,7 +1492,7 @@ function Nutrition() {
                                 </div>
 
                                 {/* QUICK SUGGESTIONS */}
-                                <div className="nutrition-suggestions-section">
+                                {/* <div className="nutrition-suggestions-section">
 
                                     <div className="nutrition-section-label">
                                         <span>QUICK SUGGESTIONS</span>
@@ -1073,7 +1518,7 @@ function Nutrition() {
 
                                     </div>
 
-                                </div>
+                                </div> */}
 
                                 {/* RECENT FOODS */}
                                 {recentFoods.length > 0 && (
@@ -1389,95 +1834,180 @@ function Nutrition() {
 
 
 
+
                         <article className="panel meals-panel">
 
                             <div className="panel-heading">
-
                                 <div>
-
                                     <h2>Today's meals</h2>
-
-                                    <p>{meals.reduce((count, meal) => count + meal.foods.length, 0)} foods logged</p>
-
+                                    <p>
+                                        {meals.reduce(
+                                            (count, meal) => count + meal.foods.length,
+                                            0
+                                        )} foods logged
+                                    </p>
                                 </div>
 
                                 <Utensils size={21} />
-
                             </div>
-
-
 
                             <div className="nutrition-meals-list">
 
-                                {meals.map((meal) => (
+                                {meals.map((meal) => {
 
-                                    <section className="nutrition-meal" key={meal.id}>
+                                    const mealTotals = meal.foods.reduce(
+                                        (total, food) => ({
+                                            calories: total.calories + Number(food.calories || 0),
+                                            protein: total.protein + Number(food.protein || 0),
+                                            carbs: total.carbs + Number(food.carbs || 0),
+                                            fat: total.fat + Number(food.fat || 0),
+                                        }),
+                                        {
+                                            calories: 0,
+                                            protein: 0,
+                                            carbs: 0,
+                                            fat: 0,
+                                        }
+                                    );
 
-                                        <div className="nutrition-meal-heading">
+                                    const isExpanded = Boolean(expandedMeals[meal.id]);
 
-                                            <h3>{meal.name}</h3>
+                                    return (
+                                        <section className="nutrition-meal" key={meal.id}>
 
-                                            <span>
+                                            {/* MEAL HEADER */}
+                                            <div className="nutrition-meal-heading">
 
-                                                {meal.foods.reduce((sum, food) => sum + food.calories, 0)} kcal
+                                                <h3>{meal.name}</h3>
 
-                                            </span>
+                                                <span className="nutrition-meal-calories">
+                                                    {Math.round(mealTotals.calories)} kcal
+                                                </span>
 
-                                        </div>
+                                            </div>
 
+                                            {/* FOOD ENTRIES */}
+                                            {meal.foods.length === 0 ? (
 
+                                                <p className="nutrition-empty-meal">
+                                                    Nothing logged yet
+                                                </p>
 
-                                        {meal.foods.length === 0 ? (
+                                            ) : (
 
-                                            <p className="nutrition-empty-meal">Nothing logged yet</p>
+                                                <>
+                                                    <div className="nutrition-food-list">
 
-                                        ) : (
+                                                        {meal.foods.map((food) => (
 
-                                            meal.foods.map((food) => (
+                                                            <div
+                                                                className="nutrition-food-item"
+                                                                key={food.id}
+                                                            >
 
-                                                <div className="nutrition-food-item" key={food.id}>
+                                                                <div className="nutrition-food-details">
 
-                                                    <div>
+                                                                    <strong>{food.name}</strong>
 
-                                                        <strong>{food.name}</strong>
+                                                                    <div className="nutrition-food-nutrients">
 
-                                                        <span>
+                                                                        <span className="food-nutrient food-calories">
+                                                                            {Math.round(Number(food.calories) || 0)} kcal
+                                                                        </span>
 
-                                                            {food.calories} kcal · P {food.protein}g · C {food.carbs}g · F {food.fat}g
+                                                                        <span className="food-nutrient food-protein">
+                                                                            P {Number(food.protein || 0)}g
+                                                                        </span>
 
-                                                        </span>
+                                                                        <span className="food-nutrient food-carbs">
+                                                                            C {Number(food.carbs || 0)}g
+                                                                        </span>
+
+                                                                        <span className="food-nutrient food-fat">
+                                                                            F {Number(food.fat || 0)}g
+                                                                        </span>
+
+                                                                    </div>
+
+                                                                </div>
+
+                                                                <button
+                                                                    type="button"
+                                                                    className="nutrition-remove"
+                                                                    aria-label={`Remove ${food.name}`}
+                                                                    onClick={() => removeFood(meal.id, food.id)}
+                                                                >
+                                                                    <Trash2 size={15} />
+                                                                </button>
+
+                                                            </div>
+
+                                                        ))}
 
                                                     </div>
 
-                                                    <button
+                                                    {/* EXPANDABLE MEAL MACROS */}
+                                                    <div className="nutrition-meal-macro-section">
 
-                                                        type="button"
+                                                        <button
+                                                            type="button"
+                                                            className={`nutrition-macro-toggle ${isExpanded ? "expanded" : ""
+                                                                }`}
+                                                            onClick={() => {
+                                                                setExpandedMeals((current) => ({
+                                                                    ...current,
+                                                                    [meal.id]: !current[meal.id],
+                                                                }));
+                                                            }}
+                                                            aria-expanded={isExpanded}
+                                                        >
+                                                            {isExpanded ? "Hide macros" : "View meal macros"}
 
-                                                        className="nutrition-remove"
+                                                            <ChevronDown size={15} />
+                                                        </button>
 
-                                                        aria-label={`Remove ${food.name}`}
+                                                        {isExpanded && (
 
-                                                        onClick={() => removeFood(meal.id, food.id)}
+                                                            <div className="nutrition-meal-macro-breakdown">
 
-                                                    >
+                                                                <div className="nutrition-meal-macro-card macro-protein">
+                                                                    <span>PROTEIN</span>
+                                                                    <strong>
+                                                                        {mealTotals.protein.toFixed(1).replace(/\.0$/, "")}g
+                                                                    </strong>
+                                                                </div>
 
-                                                        <Trash2 size={16} />
+                                                                <div className="nutrition-meal-macro-card macro-carbs">
+                                                                    <span>CARBS</span>
+                                                                    <strong>
+                                                                        {mealTotals.carbs.toFixed(1).replace(/\.0$/, "")}g
+                                                                    </strong>
+                                                                </div>
 
-                                                    </button>
+                                                                <div className="nutrition-meal-macro-card macro-fat">
+                                                                    <span>FAT</span>
+                                                                    <strong>
+                                                                        {mealTotals.fat.toFixed(1).replace(/\.0$/, "")}g
+                                                                    </strong>
+                                                                </div>
 
-                                                </div>
+                                                            </div>
 
-                                            ))
+                                                        )}
 
-                                        )}
+                                                    </div>
+                                                </>
 
-                                    </section>
+                                            )}
 
-                                ))}
+                                        </section>
+                                    );
+                                })}
 
                             </div>
 
                         </article>
+
 
                     </div>
 
