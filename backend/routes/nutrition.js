@@ -327,6 +327,113 @@ router.get("/weekly", async (req, res) => {
 });
 
 
+/**
+ * GET /api/nutrition/monthly?month=YYYY-MM
+ * Fetch nutrition entries for every day in a month
+ * and calculate daily totals.
+ */
+router.get("/monthly", async (req, res) => {
+  try {
+    const { month } = req.query;
+
+    // Validate YYYY-MM format.
+    if (
+      typeof month !== "string" ||
+      !/^\d{4}-\d{2}$/.test(month)
+    ) {
+      return res.status(400).json({
+        error: "Provide month in YYYY-MM format.",
+      });
+    }
+
+    const [year, monthNumber] = month.split("-").map(Number);
+
+    // Validate the calendar month.
+    if (
+      year < 1 ||
+      monthNumber < 1 ||
+      monthNumber > 12
+    ) {
+      return res.status(400).json({
+        error: "Invalid month.",
+      });
+    }
+
+    // UTC boundaries: first day of this month
+    // and first day of the next month.
+    const startDate = new Date(
+      Date.UTC(year, monthNumber - 1, 1)
+    );
+
+    const endDate = new Date(
+      Date.UTC(year, monthNumber, 1)
+    );
+
+    const daysInMonth = new Date(
+      Date.UTC(year, monthNumber, 0)
+    ).getUTCDate();
+
+    const entries = await prisma.nutritionEntry.findMany({
+      where: {
+        entryDate: {
+          gte: startDate,
+          lt: endDate,
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    // Create an entry for every calendar day.
+    const days = Array.from(
+      { length: daysInMonth },
+      (_, index) => {
+        const date = new Date(startDate);
+        date.setUTCDate(date.getUTCDate() + index);
+
+        return {
+          date: date.toISOString().slice(0, 10),
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+          entries: 0,
+        };
+      }
+    );
+
+    const dailyTotals = new Map(
+      days.map((day) => [day.date, day])
+    );
+
+    // Aggregate food entries into their respective days.
+    for (const entry of entries) {
+      const date = new Date(entry.entryDate)
+        .toISOString()
+        .slice(0, 10);
+
+      const day = dailyTotals.get(date);
+
+      if (!day) continue;
+
+      day.calories += Number(entry.calories || 0);
+      day.protein += Number(entry.protein || 0);
+      day.carbs += Number(entry.carbs || 0);
+      day.fat += Number(entry.fat || 0);
+      day.entries += 1;
+    }
+
+    return res.json({ days });
+  } catch (error) {
+    console.error("Error fetching monthly nutrition:", error);
+
+    return res.status(500).json({
+      error: "Failed to fetch monthly nutrition.",
+    });
+  }
+});
+
+
+
 // GET /api/nutrition?date=YYYY-MM-DD — fetch entries for a day
 router.get("/", async (req, res) => {
   try {

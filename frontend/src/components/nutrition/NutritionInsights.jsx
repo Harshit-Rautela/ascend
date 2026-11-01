@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Activity,
   Flame,
@@ -70,30 +70,42 @@ export default function NutritionInsights() {
   const [weekStart, setWeekStart] = useState(() =>
     getMonday(new Date())
   );
+  const [period, setPeriod] = useState("weekly");
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const startDate = formatDate(weekStart);
 
+
   useEffect(() => {
     const controller = new AbortController();
 
-    async function fetchWeeklyNutrition() {
+    async function fetchNutrition() {
       setLoading(true);
       setError("");
 
       try {
-        const response = await fetch(
-          `http://localhost:5000/api/nutrition/weekly?startDate=${startDate}`,
-          { signal: controller.signal }
-        );
+        const url =
+          period === "weekly"
+            ? `http://localhost:5000/api/nutrition/weekly?startDate=${formatDate(
+              getMonday(selectedDate)
+            )}`
+            : `http://localhost:5000/api/nutrition/monthly?month=${selectedDate.getFullYear()}-${String(
+              selectedDate.getMonth() + 1
+            ).padStart(2, "0")}`;
+
+        const response = await fetch(url, {
+          signal: controller.signal,
+        });
 
         if (!response.ok) {
           throw new Error("Unable to load nutrition insights.");
         }
 
         const result = await response.json();
+
         setDays(Array.isArray(result.days) ? result.days : []);
       } catch (err) {
         if (err.name !== "AbortError") {
@@ -106,10 +118,11 @@ export default function NutritionInsights() {
       }
     }
 
-    fetchWeeklyNutrition();
+    fetchNutrition();
 
     return () => controller.abort();
-  }, [startDate]);
+  }, [period, selectedDate]);
+
 
   const totals = days.reduce(
     (acc, day) => ({
@@ -181,30 +194,95 @@ export default function NutritionInsights() {
         </div>
       </header>
 
-      <section className="ni-week-selector">
-        <button
-          type="button"
-          className="ni-icon-button"
-          onClick={previousWeek}
-          aria-label="Previous week"
-        >
-          <ChevronLeft size={20} />
-        </button>
+      <section className="ni-period-controls">
+        <div className="ni-period-switch">
+          <button
+            type="button"
+            className={period === "weekly" ? "active" : ""}
+            onClick={() => {
+              setPeriod("weekly");
+              setSelectedDate(new Date());
+            }}
+          >
+            Weekly
+          </button>
 
-        <div className="ni-week-label">
-          <span>WEEKLY OVERVIEW</span>
-          <strong>{formatWeekRange(startDate)}</strong>
+          <button
+            type="button"
+            className={period === "monthly" ? "active" : ""}
+            onClick={() => {
+              setPeriod("monthly");
+              setSelectedDate(new Date());
+            }}
+          >
+            Monthly
+          </button>
         </div>
 
-        <button
-          type="button"
-          className="ni-icon-button"
-          onClick={nextWeek}
-          disabled={isCurrentWeek}
-          aria-label="Next week"
-        >
-          <ChevronRight size={20} />
-        </button>
+        <div className="ni-period-navigation">
+          <button
+            type="button"
+            className="ni-icon-button"
+            aria-label="Previous period"
+            onClick={() => {
+              setSelectedDate((current) => {
+                const next = new Date(current);
+
+                if (period === "weekly") {
+                  next.setDate(next.getDate() - 7);
+                } else {
+                  next.setMonth(next.getMonth() - 1);
+                }
+
+                return next;
+              });
+            }}
+          >
+            <ChevronLeft size={20} />
+          </button>
+
+          <div className="ni-week-label">
+            <span>
+              {period === "weekly" ? "WEEKLY OVERVIEW" : "MONTHLY OVERVIEW"}
+            </span>
+
+            <strong>
+              {period === "weekly"
+                ? formatWeekRange(formatDate(getMonday(selectedDate)))
+                : selectedDate.toLocaleDateString("en-IN", {
+                  month: "long",
+                  year: "numeric",
+                })}
+            </strong>
+          </div>
+
+          <button
+            type="button"
+            className="ni-icon-button"
+            aria-label="Next period"
+            disabled={
+              period === "weekly"
+                ? getMonday(selectedDate) >= getMonday(new Date())
+                : selectedDate.getFullYear() === new Date().getFullYear() &&
+                selectedDate.getMonth() === new Date().getMonth()
+            }
+            onClick={() => {
+              setSelectedDate((current) => {
+                const next = new Date(current);
+
+                if (period === "weekly") {
+                  next.setDate(next.getDate() + 7);
+                } else {
+                  next.setMonth(next.getMonth() + 1);
+                }
+
+                return next;
+              });
+            }}
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
       </section>
 
       {error && (
@@ -212,7 +290,7 @@ export default function NutritionInsights() {
           <p>{error}</p>
           <button
             type="button"
-            onClick={() => setWeekStart(new Date(weekStart))}
+            onClick={() => setSelectedDate(current => new Date(current))}
           >
             <RefreshCw size={15} /> Retry
           </button>
@@ -343,7 +421,7 @@ export default function NutritionInsights() {
                               key={entry.name}
                               fill={
                                 MACRO_COLORS[
-                                  ["Protein", "Carbs", "Fat"].indexOf(entry.name)
+                                ["Protein", "Carbs", "Fat"].indexOf(entry.name)
                                 ]
                               }
                             />
@@ -378,7 +456,7 @@ export default function NutritionInsights() {
                             style={{
                               background:
                                 MACRO_COLORS[
-                                  ["Protein", "Carbs", "Fat"].indexOf(macro.name)
+                                ["Protein", "Carbs", "Fat"].indexOf(macro.name)
                                 ],
                             }}
                           />

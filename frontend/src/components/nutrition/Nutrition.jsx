@@ -282,7 +282,7 @@ function Nutrition() {
 
     const calorieGoal = 2200;
 
-    const proteinGoal = 150;
+    const proteinGoal = 130;
 
     const carbsGoal = 250;
 

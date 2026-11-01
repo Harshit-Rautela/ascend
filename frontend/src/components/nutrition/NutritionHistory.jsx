@@ -20,6 +20,7 @@ import {
     Legend,
     AreaChart,
     Area,
+    ReferenceLine
 } from "recharts";
 
 const API_URL = "http://localhost:5000/api/nutrition";
@@ -59,7 +60,12 @@ function formatDay(dateString) {
         day: "numeric",
     });
 }
-
+const MEAL_COLORS = {
+    Breakfast: "#c6f36a",
+    Lunch: "#72b8ff",
+    Dinner: "#bd8aff",
+    Snacks: "#ffad73",
+};
 function formatLongDate(dateString) {
     return new Date(`${dateString}T12:00:00`).toLocaleDateString("en-IN", {
         weekday: "long",
@@ -80,7 +86,9 @@ export default function NutritionHistory() {
     const [micronutrients, setMicronutrients] = useState([]);
     const [micronutrientsLoading, setMicronutrientsLoading] = useState(false);
     const [micronutrientsError, setMicronutrientsError] = useState("");
-
+    const [activeMicronutrientFilter, setActiveMicronutrientFilter] =
+        useState("All");
+    const [activeMetric, setActiveMetric] = useState("calories");
     useEffect(() => {
         const controller = new AbortController();
 
@@ -165,6 +173,17 @@ export default function NutritionHistory() {
 
 
     const weekStart = useMemo(() => getMonday(selectedDate), [selectedDate]);
+    const weekDates = useMemo(
+        () => Array.from({ length: 7 }, (_, index) => shiftDate(weekStart, index)),
+        [weekStart]
+    );
+
+    const today = getToday();
+
+    function hasNutritionData(date) {
+        const dayData = weekDays.find((day) => day.date === date);
+        return Number(dayData?.calories || 0) > 0;
+    }
 
     useEffect(() => {
         const controller = new AbortController();
@@ -217,15 +236,128 @@ export default function NutritionHistory() {
             ),
         [entries]
     );
+    const chartMetrics = {
+        calories: {
+            label: "Calories",
+            unit: "kcal",
+            goal: 2200,
+            color: "#c6f36a",
+            gradientId: "calorieGradient",
+        },
+        protein: {
+            label: "Protein",
+            unit: "g",
+            goal: 150,
+            color: "#bd8aff",
+            gradientId: "proteinGradient",
+        },
+    };
 
-    const macroData = useMemo(
-        () => [
-            { name: "Protein", value: totals.protein * 4 },
-            { name: "Carbs", value: totals.carbs * 4 },
-            { name: "Fat", value: totals.fat * 9 },
-        ].filter((macro) => macro.value > 0),
-        [totals]
+    const selectedMetric = chartMetrics[activeMetric];
+
+    const chartData = useMemo(
+        () =>
+            weekDays.map((day) => ({
+                ...day,
+                chartValue: hasNutritionData(day.date)
+                    ? Number(day[activeMetric] || 0)
+                    : null,
+            })),
+        [weekDays, activeMetric]
     );
+
+    const weeklyAverage = useMemo(() => {
+        const recordedDays = chartData.filter(
+            (day) => day.chartValue !== null
+        );
+
+        if (recordedDays.length === 0) return 0;
+
+        return (
+            recordedDays.reduce((sum, day) => sum + day.chartValue, 0) /
+            recordedDays.length
+        );
+    }, [chartData]);
+    const nutritionMetrics = [
+        {
+            label: "Calories",
+            value: totals.calories,
+            goal: 2200,
+            unit: "kcal",
+            style: "calories",
+            decimals: 0,
+        },
+        {
+            label: "Protein",
+            value: totals.protein,
+            goal: 150,
+            unit: "g",
+            style: "protein",
+            decimals: 1,
+        },
+        {
+            label: "Carbs",
+            value: totals.carbs,
+            goal: 250,
+            unit: "g",
+            style: "carbs",
+            decimals: 1,
+        },
+        {
+            label: "Fat",
+            value: totals.fat,
+            goal: 70,
+            unit: "g",
+            style: "fat",
+            decimals: 1,
+        },
+    ].map((metric) => {
+        const percentage =
+            metric.goal > 0
+                ? (metric.value / metric.goal) * 100
+                : null;
+
+        return {
+            ...metric,
+            percentage,
+            progress: percentage === null
+                ? 0
+                : Math.min(percentage, 100),
+        };
+    });
+
+    const macroBreakdown = [
+        {
+            name: "Protein",
+            grams: totals.protein,
+            calories: totals.protein * 4,
+            color: "#c6f36a",
+        },
+        {
+            name: "Carbs",
+            grams: totals.carbs,
+            calories: totals.carbs * 4,
+            color: "#72b8ff",
+        },
+        {
+            name: "Fat",
+            grams: totals.fat,
+            calories: totals.fat * 9,
+            color: "#ffad73",
+        },
+    ];
+
+    const totalMacroCalories = macroBreakdown.reduce(
+        (sum, macro) => sum + macro.calories,
+        0
+    );
+
+    const macroData = macroBreakdown
+        .filter((macro) => macro.calories > 0)
+        .map((macro) => ({
+            ...macro,
+            value: macro.calories,
+        }));
 
     const mealData = useMemo(
         () =>
@@ -240,6 +372,37 @@ export default function NutritionHistory() {
             })),
         [entries]
     );
+    function getMicronutrientCategory(nutrient) {
+        const category = String(nutrient.category || "").toLowerCase();
+
+        if (category.includes("vitamin")) return "Vitamins";
+        if (category.includes("mineral")) return "Minerals";
+
+        return "Other";
+    }
+
+    const micronutrientCategories = ["All", "Vitamins", "Minerals", "Other"];
+
+    const micronutrientCounts = {
+        All: micronutrients.length,
+        Vitamins: micronutrients.filter(
+            (item) => getMicronutrientCategory(item) === "Vitamins"
+        ).length,
+        Minerals: micronutrients.filter(
+            (item) => getMicronutrientCategory(item) === "Minerals"
+        ).length,
+        Other: micronutrients.filter(
+            (item) => getMicronutrientCategory(item) === "Other"
+        ).length,
+    };
+
+    const filteredMicronutrients =
+        activeMicronutrientFilter === "All"
+            ? micronutrients
+            : micronutrients.filter(
+                (item) =>
+                    getMicronutrientCategory(item) === activeMicronutrientFilter
+            );
 
     const isToday = selectedDate === getToday();
 
@@ -288,8 +451,56 @@ export default function NutritionHistory() {
             </div>
 
             <div className="nutrition-history-date-label">
-                {formatLongDate(selectedDate)}
-                {isToday && <span>Today</span>}
+                <div className="nutrition-history-selected-label">
+                    {formatLongDate(selectedDate)}
+                    {isToday && <span>Today</span>}
+                </div>
+
+                {!isToday && (
+                    <button
+                        type="button"
+                        className="nutrition-history-today-button"
+                        onClick={() => setSelectedDate(today)}
+                    >
+                        Today
+                    </button>
+                )}
+            </div>
+            <div className="nutrition-history-week-strip">
+                {weekDates.map((date) => {
+                    const isSelected = date === selectedDate;
+                    const isCurrentDay = date === today;
+                    const isFuture = date > today;
+                    const hasData = hasNutritionData(date);
+
+                    return (
+                        <button
+                            key={date}
+                            type="button"
+                            className={`nutrition-history-week-day ${isSelected ? "selected" : ""
+                                } ${isCurrentDay ? "current-day" : ""}`}
+                            disabled={isFuture}
+                            aria-pressed={isSelected}
+                            aria-label={formatLongDate(date)}
+                            onClick={() => setSelectedDate(date)}
+                        >
+                            <span className="nutrition-history-week-name">
+                                {new Date(`${date}T12:00:00`).toLocaleDateString(
+                                    "en-IN",
+                                    { weekday: "short" }
+                                )}
+                            </span>
+
+                            <span className="nutrition-history-week-number">
+                                {new Date(`${date}T12:00:00`).getDate()}
+                            </span>
+
+                            <span className="nutrition-history-week-indicator">
+                                {hasData ? "●" : ""}
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
 
             {error && (
@@ -303,36 +514,191 @@ export default function NutritionHistory() {
                     <section className="nutrition-history-section">
                         <div className="nutrition-history-section-heading">
                             <div>
-                                <h3>Daily overview</h3>
-                                <p>Your total intake for this day.</p>
+                                <h3>Weekly nutrition trend</h3>
+                                <p>Track your daily intake against your nutrition goals.</p>
+                            </div>
+
+                            <div className="nutrition-history-metric-switch" role="group" aria-label="Select nutrition metric">
+                                <button
+                                    type="button"
+                                    className={activeMetric === "calories" ? "active" : ""}
+                                    aria-pressed={activeMetric === "calories"}
+                                    onClick={() => setActiveMetric("calories")}
+                                >
+                                    Calories
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className={activeMetric === "protein" ? "active" : ""}
+                                    aria-pressed={activeMetric === "protein"}
+                                    onClick={() => setActiveMetric("protein")}
+                                >
+                                    Protein
+                                </button>
                             </div>
                         </div>
 
-                        {loading ? (
-                            <p className="nutrition-history-status">Loading daily nutrition...</p>
+                        {weeklyError ? (
+                            <p role="alert" className="nutrition-history-error">
+                                {weeklyError}
+                            </p>
+                        ) : weeklyLoading ? (
+                            <p className="nutrition-history-status">
+                                Loading weekly trend...
+                            </p>
                         ) : (
-                            <div className="nutrition-history-summary">
-                                <div>
-                                    <span>Calories</span>
-                                    <strong>{Math.round(totals.calories)} <small>kcal</small></strong>
+                            <>
+                                <div className="nutrition-history-chart-summary">
+                                    <div>
+                                        <span>Weekly average</span>
+                                        <strong style={{ color: selectedMetric.color }}>
+                                            {weeklyAverage.toLocaleString("en-IN", {
+                                                maximumFractionDigits: activeMetric === "calories" ? 0 : 1,
+                                            })}{" "}
+                                            {selectedMetric.unit}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Daily target</span>
+                                        <strong>
+                                            {selectedMetric.goal.toLocaleString("en-IN")}{" "}
+                                            {selectedMetric.unit}
+                                        </strong>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span>Protein</span>
-                                    <strong>{totals.protein.toFixed(1)} <small>g</small></strong>
+
+                                <div className="nutrition-history-chart">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart
+                                            data={chartData}
+                                            margin={{ top: 12, right: 12, left: 0, bottom: 0 }}
+                                        >
+                                            <defs>
+                                                <linearGradient
+                                                    id={selectedMetric.gradientId}
+                                                    x1="0"
+                                                    y1="0"
+                                                    x2="0"
+                                                    y2="1"
+                                                >
+                                                    <stop
+                                                        offset="0%"
+                                                        stopColor={selectedMetric.color}
+                                                        stopOpacity={0.35}
+                                                    />
+                                                    <stop
+                                                        offset="55%"
+                                                        stopColor={selectedMetric.color}
+                                                        stopOpacity={0.12}
+                                                    />
+                                                    <stop
+                                                        offset="100%"
+                                                        stopColor={selectedMetric.color}
+                                                        stopOpacity={0.01}
+                                                    />
+                                                </linearGradient>
+                                                <filter id="chartLineGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                                    <feGaussianBlur stdDeviation="3" result="blur" />
+                                                    <feMerge>
+                                                        <feMergeNode in="blur" />
+                                                        <feMergeNode in="SourceGraphic" />
+                                                    </feMerge>
+                                                </filter>
+                                            </defs>
+
+                                            <CartesianGrid
+                                                stroke="#343a34"
+                                                strokeDasharray="4 4"
+                                                vertical={false}
+                                            />
+
+                                            <XAxis
+                                                dataKey="date"
+                                                tickFormatter={formatDay}
+                                                stroke="#8b9488"
+                                                tickLine={false}
+                                                axisLine={false}
+                                            />
+
+                                            <YAxis
+                                                stroke="#8b9488"
+                                                tickLine={false}
+                                                axisLine={false}
+                                                width={55}
+                                                domain={[
+                                                    0,
+                                                    (dataMax) =>
+                                                        Math.ceil(
+                                                            Math.max(dataMax, selectedMetric.goal) * 1.15
+                                                        ),
+                                                ]}
+                                            />
+
+                                            <Tooltip
+                                                labelFormatter={(label) => formatLongDate(label)}
+                                                formatter={(value) => [
+                                                    `${Number(value).toLocaleString("en-IN", {
+                                                        maximumFractionDigits: 1,
+                                                    })} ${selectedMetric.unit}`,
+                                                    selectedMetric.label,
+                                                ]}
+                                                contentStyle={{
+                                                    background: "#1c211c",
+                                                    border: "1px solid #3a4436",
+                                                    borderRadius: 12,
+                                                    color: "#f2f5ed",
+                                                }}
+                                            />
+
+                                            <ReferenceLine
+                                                y={selectedMetric.goal}
+                                                stroke="#FFA454"
+                                                strokeDasharray="6 5"
+                                                strokeWidth={2}
+                                                label={{
+                                                    value: `Goal: ${selectedMetric.goal.toLocaleString("en-IN")} ${selectedMetric.unit}`,
+                                                    position: "insideTopRight",
+                                                    fill: "#FFA454",
+                                                    fontSize: 11,
+                                                }}
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="chartValue"
+                                                stroke={selectedMetric.color}
+                                                strokeWidth={3}
+                                                strokeLinecap="round"
+                                                fill={`url(#${selectedMetric.gradientId})`}
+                                                connectNulls={false}
+                                                dot={{
+                                                    r: 3.5,
+                                                    fill: selectedMetric.color,
+                                                    stroke: "#171c17",
+                                                    strokeWidth: 2,
+                                                }}
+                                                activeDot={{
+                                                    r: 6,
+                                                    fill: selectedMetric.color,
+                                                    stroke: "#f2eaff",
+                                                    strokeWidth: 2,
+                                                    style: {
+                                                        filter: "drop-shadow(0 0 7px rgba(192, 132, 252, 0.8))",
+                                                    },
+                                                }}
+                                                style={{
+                                                    filter: "url(#chartLineGlow)",
+                                                }}
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
                                 </div>
-                                <div>
-                                    <span>Carbs</span>
-                                    <strong>{totals.carbs.toFixed(1)} <small>g</small></strong>
-                                </div>
-                                <div>
-                                    <span>Fat</span>
-                                    <strong>{totals.fat.toFixed(1)} <small>g</small></strong>
-                                </div>
-                            </div>
+                            </>
                         )}
                     </section>
 
-                    <section className="nutrition-history-section">
+                    {/* <section className="nutrition-history-section">
                         <div className="nutrition-history-section-heading">
                             <div>
                                 <h3>Weekly calorie trend</h3>
@@ -393,13 +759,18 @@ export default function NutritionHistory() {
                                 </ResponsiveContainer>
                             </div>
                         )}
-                    </section>
-                    <section className="nutrition-history-section">
-                        <div className="nutrition-history-section-heading">
+                    </section> */}
+                    <section className="nutrition-history-section micronutrient-panel">
+                        <div className="panel-heading micronutrient-heading">
                             <div>
-                                <h3>Micronutrient intake</h3>
+                                <h2>Micronutrient intake</h2>
                                 <p>Vitamins, minerals, and other nutrients for this day.</p>
                             </div>
+
+                            <span className="micronutrient-source-note">
+                                <span className="micronutrient-source-dot" />
+                                Daily history
+                            </span>
                         </div>
 
                         {micronutrientsLoading ? (
@@ -407,78 +778,170 @@ export default function NutritionHistory() {
                                 Loading micronutrient history...
                             </p>
                         ) : micronutrientsError ? (
-                            <p role="alert" className="nutrition-history-error">
-                                {micronutrientsError}
-                            </p>
+                            <div className="micronutrient-empty" role="alert">
+                                <p>Could not load micronutrient history.</p>
+                                <span>{micronutrientsError}</span>
+                            </div>
                         ) : micronutrients.length === 0 ? (
-                            <div className="nutrition-history-chart-empty">
+                            <div className="micronutrient-empty">
                                 <p>No micronutrient data for this day yet.</p>
+                                <span>
+                                    Record food or supplement entries to see your daily
+                                    micronutrient intake here.
+                                </span>
                             </div>
                         ) : (
-                            <div className="history-micronutrient-grid">
-                                {micronutrients.map((nutrient) => {
-                                    const amount = Number(nutrient.amount) || 0;
-                                    const target = Number(nutrient.target);
-
-                                    const hasTarget =
-                                        nutrient.target != null &&
-                                        Number.isFinite(target) &&
-                                        target > 0;
-
-                                    const percentage = hasTarget
-                                        ? Math.round((amount / target) * 100)
-                                        : null;
-
-                                    const progress = percentage == null
-                                        ? 0
-                                        : Math.min(percentage, 100);
-
-                                    return (
-                                        <article
-                                            className="history-micronutrient-card"
-                                            key={nutrient.key}
+                            <>
+                                <div
+                                    className="micronutrient-filters"
+                                    role="group"
+                                    aria-label="Filter micronutrients by category"
+                                >
+                                    {micronutrientCategories.map((category) => (
+                                        <button
+                                            key={category}
+                                            type="button"
+                                            className={`micronutrient-filter ${activeMicronutrientFilter === category
+                                                ? "active"
+                                                : ""
+                                                }`}
+                                            aria-pressed={activeMicronutrientFilter === category}
+                                            onClick={() => setActiveMicronutrientFilter(category)}
                                         >
-                                            <div className="history-micronutrient-heading">
-                                                <h4>{nutrient.name}</h4>
-                                                <span>{nutrient.category || "Nutrient"}</span>
-                                            </div>
+                                            {category}
 
-                                            <div className="history-micronutrient-amount">
-                                                {amount.toLocaleString("en-IN", {
-                                                    maximumFractionDigits: 2,
-                                                })}
-                                                <span>{nutrient.unit}</span>
-                                            </div>
+                                            <span>{micronutrientCounts[category]}</span>
+                                        </button>
+                                    ))}
+                                </div>
 
-                                            <div
-                                                className="history-micronutrient-track"
-                                                role="progressbar"
-                                                aria-label={`${nutrient.name} daily target`}
-                                                aria-valuemin={0}
-                                                aria-valuemax={100}
-                                                aria-valuenow={progress}
-                                            >
-                                                <div
-                                                    className="history-micronutrient-fill"
-                                                    style={{ width: `${progress}%` }}
-                                                />
-                                            </div>
+                                {filteredMicronutrients.length === 0 ? (
+                                    <div className="micronutrient-filter-empty">
+                                        No nutrients found in this category.
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="micronutrient-scroll"
+                                        aria-label="Daily micronutrient intake"
+                                    >
+                                        {filteredMicronutrients.map((nutrient) => {
+                                            const amount =
+                                                nutrient.amount === null ||
+                                                    nutrient.amount === undefined ||
+                                                    nutrient.amount === ""
+                                                    ? null
+                                                    : Number(nutrient.amount);
 
-                                            <p className="history-micronutrient-percentage">
-                                                {percentage == null
-                                                    ? "No target set"
-                                                    : `${percentage}% of daily target`}
-                                            </p>
+                                            const target =
+                                                nutrient.target === null ||
+                                                    nutrient.target === undefined ||
+                                                    nutrient.target === ""
+                                                    ? null
+                                                    : Number(nutrient.target);
 
-                                            <p className="history-micronutrient-target">
-                                                Target: {hasTarget
-                                                    ? `${target.toLocaleString("en-IN")} ${nutrient.unit}`
-                                                    : "No target set"}
-                                            </p>
-                                        </article>
-                                    );
-                                })}
-                            </div>
+                                            const hasAmount =
+                                                amount !== null && Number.isFinite(amount);
+
+                                            const hasTarget =
+                                                target !== null &&
+                                                Number.isFinite(target) &&
+                                                target > 0;
+
+                                            const percentage =
+                                                hasAmount && hasTarget
+                                                    ? (amount / target) * 100
+                                                    : null;
+
+                                            const progress =
+                                                percentage === null
+                                                    ? 0
+                                                    : Math.min(percentage, 100);
+
+                                            const statusClass =
+                                                !hasAmount
+                                                    ? "micronutrient-unavailable"
+                                                    : !hasTarget
+                                                        ? "micronutrient-no-target"
+                                                        : percentage >= 100
+                                                            ? "micronutrient-complete"
+                                                            : "micronutrient-progress";
+
+                                            return (
+                                                <article
+                                                    className={`micronutrient-card ${statusClass}`}
+                                                    key={nutrient.key || nutrient.name}
+                                                >
+                                                    <div className="micronutrient-card-header">
+                                                        <div className="micronutrient-card-top">
+                                                            <span>{nutrient.name}</span>
+
+                                                            <span className="micronutrient-category">
+                                                                {nutrient.category || "Nutrient"}
+                                                            </span>
+                                                        </div>
+
+                                                        <span className="micronutrient-percent-badge">
+                                                            {percentage === null
+                                                                ? "—"
+                                                                : `${Math.round(percentage)}%`}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="micronutrient-amount">
+                                                        {hasAmount
+                                                            ? amount.toLocaleString("en-IN", {
+                                                                maximumFractionDigits: 2,
+                                                            })
+                                                            : "—"}
+
+                                                        <span>{nutrient.unit || ""}</span>
+                                                    </div>
+
+                                                    <div
+                                                        className="micronutrient-progress-track"
+                                                        role="progressbar"
+                                                        aria-label={`${nutrient.name} daily target`}
+                                                        aria-valuemin={0}
+                                                        aria-valuemax={100}
+                                                        aria-valuenow={progress}
+                                                    >
+                                                        <div
+                                                            className="micronutrient-progress-fill"
+                                                            style={{
+                                                                width: `${progress}%`,
+                                                            }}
+                                                        />
+                                                    </div>
+
+                                                    {hasAmount ? (
+                                                        <div className="micronutrient-card-footer">
+                                                            <span>
+                                                                {percentage === null
+                                                                    ? "Amount recorded"
+                                                                    : percentage >= 100
+                                                                        ? "Target reached"
+                                                                        : `${Math.round(percentage)}% of daily target`}
+                                                            </span>
+
+                                                            <span>
+                                                                {hasTarget
+                                                                    ? `Target: ${target.toLocaleString(
+                                                                        "en-IN"
+                                                                    )} ${nutrient.unit || ""}`
+                                                                    : "No target configured"}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="micronutrient-unavailable">
+                                                            Amount unavailable
+                                                        </div>
+                                                    )}
+                                                </article>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </section>
                     <div className="nutrition-history-chart-grid">
@@ -498,42 +961,96 @@ export default function NutritionHistory() {
                                 </div>
                             ) : (
                                 <>
-                                    <div className="nutrition-history-donut">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
-                                                <Pie
-                                                    data={macroData}
-                                                    dataKey="value"
-                                                    nameKey="name"
-                                                    innerRadius="62%"
-                                                    outerRadius="82%"
-                                                    paddingAngle={4}
-                                                    stroke="none"
-                                                >
-                                                    {macroData.map((item, index) => (
-                                                        <Cell
-                                                            key={item.name}
-                                                            fill={MACRO_COLORS[
-                                                                ["Protein", "Carbs", "Fat"].indexOf(item.name)
+                                    <div className="nutrition-history-macro-layout">
+                                        <div className="nutrition-history-donut-wrap">
+                                            <div className="nutrition-history-donut">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <PieChart>
+                                                        <Pie
+                                                            data={macroData}
+                                                            dataKey="value"
+                                                            nameKey="name"
+                                                            innerRadius="66%"
+                                                            outerRadius="86%"
+                                                            paddingAngle={4}
+                                                            stroke="none"
+                                                        >
+                                                            {macroData.map((macro) => (
+                                                                <Cell
+                                                                    key={macro.name}
+                                                                    fill={macro.color}
+                                                                />
+                                                            ))}
+                                                        </Pie>
+
+                                                        <Tooltip
+                                                            formatter={(value) => [
+                                                                `${Math.round(value)} kcal`,
+                                                                "Energy",
                                                             ]}
+                                                            contentStyle={{
+                                                                background: "#1c211c",
+                                                                border: "1px solid #3a4436",
+                                                                borderRadius: 12,
+                                                                color: "#f2f5ed",
+                                                            }}
                                                         />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip
-                                                    formatter={(value) => [`${Math.round(value)} kcal`, "Energy"]}
-                                                    contentStyle={{
-                                                        background: "#1c211c",
-                                                        border: "1px solid #3a4436",
-                                                        borderRadius: 12,
-                                                        color: "#f2f5ed",
-                                                    }}
-                                                />
-                                                <Legend />
-                                            </PieChart>
-                                        </ResponsiveContainer>
+                                                    </PieChart>
+                                                </ResponsiveContainer>
+                                            </div>
+
+                                            <div className="nutrition-history-donut-center">
+                                                <strong>
+                                                    {Math.round(totalMacroCalories).toLocaleString("en-IN")}
+                                                </strong>
+                                                <span>macro kcal</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="nutrition-history-macro-legend">
+                                            {macroBreakdown.map((macro) => {
+                                                const percentage =
+                                                    totalMacroCalories > 0
+                                                        ? (macro.calories / totalMacroCalories) * 100
+                                                        : 0;
+
+                                                return (
+                                                    <div
+                                                        className="nutrition-history-macro-item"
+                                                        key={macro.name}
+                                                    >
+                                                        <div className="nutrition-history-macro-item-heading">
+                                                            <span>
+                                                                <i style={{ background: macro.color }} />
+                                                                {macro.name}
+                                                            </span>
+
+                                                            <strong>{percentage.toFixed(1)}%</strong>
+                                                        </div>
+
+                                                        <div className="nutrition-history-macro-item-values">
+                                                            <span>{Number(macro.grams).toFixed(1)} g</span>
+                                                            <span>{Math.round(macro.calories)} kcal</span>
+                                                        </div>
+
+                                                        <div className="nutrition-history-macro-track">
+                                                            <div
+                                                                style={{
+                                                                    width: `${percentage}%`,
+                                                                    background: macro.color,
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
+
                                     <p className="nutrition-history-chart-note">
-                                        Protein and carbs are estimated at 4 kcal/g; fat at 9 kcal/g.
+                                        Protein and carbohydrates provide 4 kcal/g, while fat provides
+                                        9 kcal/g. Percentages represent each macro's share of total
+                                        macro calories.
                                     </p>
                                 </>
                             )}
@@ -552,14 +1069,27 @@ export default function NutritionHistory() {
                             ) : (
                                 <div className="nutrition-history-meals-chart">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={mealData} layout="vertical" margin={{ left: 4, right: 14 }}>
-                                            <CartesianGrid stroke="#343a34" strokeDasharray="4 4" horizontal={false} />
+                                        <BarChart
+                                            data={mealData}
+                                            layout="vertical"
+                                            margin={{ top: 8, right: 20, left: 4, bottom: 0 }}
+                                            barCategoryGap="35%"
+                                        >
+                                            <CartesianGrid
+                                                stroke="#343a34"
+                                                strokeDasharray="3 5"
+                                                horizontal={false}
+                                                vertical
+                                            />
+
                                             <XAxis
                                                 type="number"
                                                 stroke="#8b9488"
                                                 tickLine={false}
                                                 axisLine={false}
+                                                tick={{ fill: "#8b9488", fontSize: 11 }}
                                             />
+
                                             <YAxis
                                                 type="category"
                                                 dataKey="meal"
@@ -567,35 +1097,85 @@ export default function NutritionHistory() {
                                                 stroke="#b8c0b2"
                                                 tickLine={false}
                                                 axisLine={false}
+                                                tick={{ fill: "#cbd3c4", fontSize: 12 }}
                                             />
+
                                             <Tooltip
-                                                formatter={(value) => [`${value} kcal`, "Calories"]}
+                                                formatter={(value) => [
+                                                    `${Math.round(value)} kcal`,
+                                                    "Calories",
+                                                ]}
                                                 contentStyle={{
                                                     background: "#1c211c",
                                                     border: "1px solid #3a4436",
                                                     borderRadius: 12,
-                                                    color: "#f2f5ed",
+                                                    color: "#ADD8E6",
                                                 }}
+                                                itemStyle={{
+                                                    color: "#CBC3E3",
+                                                    fontWeight: 600,
+                                                }}
+                                                labelStyle={{
+                                                    color: "#ffad73",
+                                                    fontWeight: 600,
+                                                    marginBottom: 6,
+                                                }}
+                                                cursor={{ fill: "rgba(255,255,255,0.035)" }}
                                             />
+
                                             <Bar
                                                 dataKey="calories"
-                                                fill="#c6f36a"
-                                                radius={[0, 6, 6, 0]}
-                                                maxBarSize={24}
-                                            />
+                                                radius={[0, 7, 7, 0]}
+                                                maxBarSize={25}
+                                            >
+                                                {mealData.map((meal) => (
+                                                    <Cell
+                                                        key={meal.meal}
+                                                        fill={MEAL_COLORS[meal.meal]}
+                                                    />
+                                                ))}
+                                            </Bar>
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
                             )}
-
                             {!loading && (
                                 <div className="nutrition-history-meal-counts">
-                                    {mealData.map((meal) => (
-                                        <div key={meal.meal}>
-                                            <span>{meal.meal}</span>
-                                            <strong>{meal.count} {meal.count === 1 ? "entry" : "entries"}</strong>
-                                        </div>
-                                    ))}
+                                    {mealData.map((meal) => {
+                                        const percentage =
+                                            totals.calories > 0
+                                                ? (meal.calories / totals.calories) * 100
+                                                : 0;
+
+                                        return (
+                                            <div
+                                                className="nutrition-history-meal-summary"
+                                                key={meal.meal}
+                                            >
+                                                <div className="nutrition-history-meal-summary-name">
+                                                    <span
+                                                        className="nutrition-history-meal-dot"
+                                                        style={{
+                                                            background: MEAL_COLORS[meal.meal],
+                                                        }}
+                                                    />
+                                                    <span>{meal.meal}</span>
+                                                </div>
+
+                                                <strong>
+                                                    {Math.round(meal.calories)} kcal
+                                                </strong>
+
+                                                <span className="nutrition-history-meal-percentage">
+                                                    {percentage.toFixed(1)}%
+                                                </span>
+
+                                                <span className="nutrition-history-meal-entry-count">
+                                                    {meal.count} {meal.count === 1 ? "entry" : "entries"}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </section>
@@ -629,12 +1209,23 @@ export default function NutritionHistory() {
                                                 <span>{entry.mealType}</span>
                                             </div>
                                             <div className="nutrition-history-entry-values">
-                                                <strong>{Math.round(Number(entry.calories))} kcal</strong>
-                                                <span>
-                                                    P {Number(entry.protein).toFixed(1)} g · C{" "}
-                                                    {Number(entry.carbs).toFixed(1)} g · F{" "}
-                                                    {Number(entry.fat).toFixed(1)} g
-                                                </span>
+                                                <strong className="nutrition-history-calorie-badge">
+                                                    {Math.round(Number(entry.calories))} kcal
+                                                </strong>
+
+                                                <div className="nutrition-history-macro-badges">
+                                                    <span className="nutrition-history-macro-badge protein">
+                                                        <b>P</b> {Number(entry.protein).toFixed(1)} g
+                                                    </span>
+
+                                                    <span className="nutrition-history-macro-badge carbs">
+                                                        <b>C</b> {Number(entry.carbs).toFixed(1)} g
+                                                    </span>
+
+                                                    <span className="nutrition-history-macro-badge fat">
+                                                        <b>F</b> {Number(entry.fat).toFixed(1)} g
+                                                    </span>
+                                                </div>
                                             </div>
                                         </article>
                                     ))}
