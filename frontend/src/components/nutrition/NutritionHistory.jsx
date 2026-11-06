@@ -79,6 +79,8 @@ export default function NutritionHistory() {
     const [selectedDate, setSelectedDate] = useState(getToday);
     const [entries, setEntries] = useState([]);
     const [weekDays, setWeekDays] = useState([]);
+    const [period, setPeriod] = useState("weekly");
+    const [monthDays, setMonthDays] = useState([]);
     const [loading, setLoading] = useState(false);
     const [weeklyLoading, setWeeklyLoading] = useState(false);
     const [error, setError] = useState("");
@@ -182,7 +184,11 @@ export default function NutritionHistory() {
 
     function hasNutritionData(date) {
         const dayData = weekDays.find((day) => day.date === date);
-        return Number(dayData?.calories || 0) > 0;
+
+        return (
+            date <= today &&
+            Number(dayData?.entries || 0) > 0
+        );
     }
 
     useEffect(() => {
@@ -223,6 +229,54 @@ export default function NutritionHistory() {
         return () => controller.abort();
     }, [weekStart]);
 
+    useEffect(() => {
+        if (period !== "monthly") return;
+
+        const controller = new AbortController();
+
+        async function loadMonth() {
+            setWeeklyLoading(true);
+            setWeeklyError("");
+
+            try {
+                const month = selectedDate.slice(0, 7);
+
+                const response = await fetch(
+                    `${API_URL}/monthly?month=${encodeURIComponent(month)}`,
+                    { signal: controller.signal }
+                );
+
+                if (!response.ok) {
+                    throw new Error("Could not load monthly nutrition.");
+                }
+
+                const data = await response.json();
+
+                if (!Array.isArray(data.days)) {
+                    throw new Error("Unexpected monthly response from the server.");
+                }
+
+                setMonthDays(data.days);
+            } catch (err) {
+                if (err.name !== "AbortError") {
+                    setWeeklyError(
+                        err.message || "Could not load monthly nutrition."
+                    );
+                    setMonthDays([]);
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setWeeklyLoading(false);
+                }
+            }
+        }
+
+        loadMonth();
+
+        return () => controller.abort();
+    }, [period, selectedDate]);
+
+
     const totals = useMemo(
         () =>
             entries.reduce(
@@ -255,15 +309,18 @@ export default function NutritionHistory() {
 
     const selectedMetric = chartMetrics[activeMetric];
 
+    const periodDays = period === "weekly" ? weekDays : monthDays;
+
     const chartData = useMemo(
         () =>
-            weekDays.map((day) => ({
+            periodDays.map((day) => ({
                 ...day,
-                chartValue: hasNutritionData(day.date)
-                    ? Number(day[activeMetric] || 0)
-                    : null,
+                chartValue:
+                    day.date <= today && Number(day.entries || 0) > 0
+                        ? Number(day[activeMetric] || 0)
+                        : null,
             })),
-        [weekDays, activeMetric]
+        [periodDays, activeMetric, today]
     );
 
     const weeklyAverage = useMemo(() => {
@@ -271,11 +328,13 @@ export default function NutritionHistory() {
             (day) => day.chartValue !== null
         );
 
-        if (recordedDays.length === 0) return 0;
+        if (recordedDays.length === 0) return null;
 
         return (
-            recordedDays.reduce((sum, day) => sum + day.chartValue, 0) /
-            recordedDays.length
+            recordedDays.reduce(
+                (sum, day) => sum + day.chartValue,
+                0
+            ) / recordedDays.length
         );
     }, [chartData]);
     const nutritionMetrics = [
@@ -514,8 +573,10 @@ export default function NutritionHistory() {
                     <section className="nutrition-history-section">
                         <div className="nutrition-history-section-heading">
                             <div>
-                                <h3>Weekly nutrition trend</h3>
-                                <p>Track your daily intake against your nutrition goals.</p>
+                                <h3>{period === "weekly" ? "Weekly nutrition trend" : "Monthly nutrition trend"}</h3>
+                                <p>
+                                    Track your daily intake against your nutrition goals.
+                                </p>
                             </div>
 
                             <div className="nutrition-history-metric-switch" role="group" aria-label="Select nutrition metric">
@@ -537,6 +598,25 @@ export default function NutritionHistory() {
                                     Protein
                                 </button>
                             </div>
+                            <div className="nutrition-history-period-switch">
+                                <button
+                                    type="button"
+                                    className={period === "weekly" ? "active" : ""}
+                                    aria-pressed={period === "weekly"}
+                                    onClick={() => setPeriod("weekly")}
+                                >
+                                    Weekly
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className={period === "monthly" ? "active" : ""}
+                                    aria-pressed={period === "monthly"}
+                                    onClick={() => setPeriod("monthly")}
+                                >
+                                    Monthly
+                                </button>
+                            </div>
                         </div>
 
                         {weeklyError ? (
@@ -545,18 +625,21 @@ export default function NutritionHistory() {
                             </p>
                         ) : weeklyLoading ? (
                             <p className="nutrition-history-status">
-                                Loading weekly trend...
+                                Loading {period === "weekly" ? "weekly" : "monthly"} trend...
                             </p>
                         ) : (
                             <>
                                 <div className="nutrition-history-chart-summary">
                                     <div>
-                                        <span>Weekly average</span>
+                                        <span>
+                                            {period === "weekly" ? "Weekly average" : "Monthly average"}
+                                        </span>
                                         <strong style={{ color: selectedMetric.color }}>
-                                            {weeklyAverage.toLocaleString("en-IN", {
-                                                maximumFractionDigits: activeMetric === "calories" ? 0 : 1,
-                                            })}{" "}
-                                            {selectedMetric.unit}
+                                            {weeklyAverage === null
+                                                ? "--"
+                                                : `${weeklyAverage.toLocaleString("en-IN", {
+                                                    maximumFractionDigits: activeMetric === "calories" ? 0 : 1,
+                                                })} ${selectedMetric.unit}`}
                                         </strong>
                                     </div>
 
@@ -569,130 +652,135 @@ export default function NutritionHistory() {
                                     </div>
                                 </div>
 
-                                <div className="nutrition-history-chart">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart
-                                            data={chartData}
-                                            margin={{ top: 12, right: 12, left: 0, bottom: 0 }}
-                                        >
-                                            <defs>
-                                                <linearGradient
-                                                    id={selectedMetric.gradientId}
-                                                    x1="0"
-                                                    y1="0"
-                                                    x2="0"
-                                                    y2="1"
-                                                >
-                                                    <stop
-                                                        offset="0%"
-                                                        stopColor={selectedMetric.color}
-                                                        stopOpacity={0.35}
-                                                    />
-                                                    <stop
-                                                        offset="55%"
-                                                        stopColor={selectedMetric.color}
-                                                        stopOpacity={0.12}
-                                                    />
-                                                    <stop
-                                                        offset="100%"
-                                                        stopColor={selectedMetric.color}
-                                                        stopOpacity={0.01}
-                                                    />
-                                                </linearGradient>
-                                                <filter id="chartLineGlow" x="-50%" y="-50%" width="200%" height="200%">
-                                                    <feGaussianBlur stdDeviation="3" result="blur" />
-                                                    <feMerge>
-                                                        <feMergeNode in="blur" />
-                                                        <feMergeNode in="SourceGraphic" />
-                                                    </feMerge>
-                                                </filter>
-                                            </defs>
+                                <div
+                                    className={`nutrition-history-chart ${period === "monthly" ? "monthly-chart" : ""
+                                        }`}
+                                >
+                                    <div className={period === "monthly" ? "monthly-chart-inner" : ""}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart
+                                                data={chartData}
+                                                margin={{ top: 12, right: 12, left: 0, bottom: 0 }}
+                                            >
+                                                <defs>
+                                                    <linearGradient
+                                                        id={selectedMetric.gradientId}
+                                                        x1="0"
+                                                        y1="0"
+                                                        x2="0"
+                                                        y2="1"
+                                                    >
+                                                        <stop
+                                                            offset="0%"
+                                                            stopColor={selectedMetric.color}
+                                                            stopOpacity={0.35}
+                                                        />
+                                                        <stop
+                                                            offset="55%"
+                                                            stopColor={selectedMetric.color}
+                                                            stopOpacity={0.12}
+                                                        />
+                                                        <stop
+                                                            offset="100%"
+                                                            stopColor={selectedMetric.color}
+                                                            stopOpacity={0.01}
+                                                        />
+                                                    </linearGradient>
+                                                    <filter id="chartLineGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                                        <feGaussianBlur stdDeviation="3" result="blur" />
+                                                        <feMerge>
+                                                            <feMergeNode in="blur" />
+                                                            <feMergeNode in="SourceGraphic" />
+                                                        </feMerge>
+                                                    </filter>
+                                                </defs>
 
-                                            <CartesianGrid
-                                                stroke="#343a34"
-                                                strokeDasharray="4 4"
-                                                vertical={false}
-                                            />
+                                                <CartesianGrid
+                                                    stroke="#343a34"
+                                                    strokeDasharray="4 4"
+                                                    vertical={false}
+                                                />
 
-                                            <XAxis
-                                                dataKey="date"
-                                                tickFormatter={formatDay}
-                                                stroke="#8b9488"
-                                                tickLine={false}
-                                                axisLine={false}
-                                            />
+                                                <XAxis
+                                                    dataKey="date"
+                                                    tickFormatter={formatDay}
+                                                    stroke="#8b9488"
+                                                    tickLine={false}
+                                                    axisLine={false}
+                                                />
 
-                                            <YAxis
-                                                stroke="#8b9488"
-                                                tickLine={false}
-                                                axisLine={false}
-                                                width={55}
-                                                domain={[
-                                                    0,
-                                                    (dataMax) =>
-                                                        Math.ceil(
-                                                            Math.max(dataMax, selectedMetric.goal) * 1.15
-                                                        ),
-                                                ]}
-                                            />
+                                                <YAxis
+                                                    stroke="#8b9488"
+                                                    tickLine={false}
+                                                    axisLine={false}
+                                                    width={55}
+                                                    domain={[
+                                                        0,
+                                                        (dataMax) =>
+                                                            Math.ceil(
+                                                                Math.max(dataMax, selectedMetric.goal) * 1.15
+                                                            ),
+                                                    ]}
+                                                />
 
-                                            <Tooltip
-                                                labelFormatter={(label) => formatLongDate(label)}
-                                                formatter={(value) => [
-                                                    `${Number(value).toLocaleString("en-IN", {
-                                                        maximumFractionDigits: 1,
-                                                    })} ${selectedMetric.unit}`,
-                                                    selectedMetric.label,
-                                                ]}
-                                                contentStyle={{
-                                                    background: "#1c211c",
-                                                    border: "1px solid #3a4436",
-                                                    borderRadius: 12,
-                                                    color: "#f2f5ed",
-                                                }}
-                                            />
+                                                <Tooltip
+                                                    labelFormatter={(label) => formatLongDate(label)}
+                                                    formatter={(value) => [
+                                                        `${Number(value).toLocaleString("en-IN", {
+                                                            maximumFractionDigits: 1,
+                                                        })} ${selectedMetric.unit}`,
+                                                        selectedMetric.label,
+                                                    ]}
+                                                    contentStyle={{
+                                                        background: "#1c211c",
+                                                        border: "1px solid #3a4436",
+                                                        borderRadius: 12,
+                                                        color: "#f2f5ed",
+                                                    }}
+                                                />
 
-                                            <ReferenceLine
-                                                y={selectedMetric.goal}
-                                                stroke="#FFA454"
-                                                strokeDasharray="6 5"
-                                                strokeWidth={2}
-                                                label={{
-                                                    value: `Goal: ${selectedMetric.goal.toLocaleString("en-IN")} ${selectedMetric.unit}`,
-                                                    position: "insideTopRight",
-                                                    fill: "#FFA454",
-                                                    fontSize: 11,
-                                                }}
-                                            />
-                                            <Area
-                                                type="monotone"
-                                                dataKey="chartValue"
-                                                stroke={selectedMetric.color}
-                                                strokeWidth={3}
-                                                strokeLinecap="round"
-                                                fill={`url(#${selectedMetric.gradientId})`}
-                                                connectNulls={false}
-                                                dot={{
-                                                    r: 3.5,
-                                                    fill: selectedMetric.color,
-                                                    stroke: "#171c17",
-                                                    strokeWidth: 2,
-                                                }}
-                                                activeDot={{
-                                                    r: 6,
-                                                    fill: selectedMetric.color,
-                                                    stroke: "#f2eaff",
-                                                    strokeWidth: 2,
-                                                    style: {
-                                                        filter: "drop-shadow(0 0 7px rgba(192, 132, 252, 0.8))",
-                                                    },
-                                                }}
-                                                style={{
-                                                    filter: "url(#chartLineGlow)",
-                                                }}
-                                            />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
+                                                <ReferenceLine
+                                                    y={selectedMetric.goal}
+                                                    stroke="#FFA454"
+                                                    strokeDasharray="6 5"
+                                                    strokeWidth={2}
+                                                    label={{
+                                                        value: `Goal: ${selectedMetric.goal.toLocaleString("en-IN")} ${selectedMetric.unit}`,
+                                                        position: "insideTopRight",
+                                                        fill: "#FFA454",
+                                                        fontSize: 11,
+                                                    }}
+                                                />
+                                                <Area
+                                                    type="monotone"
+                                                    dataKey="chartValue"
+                                                    stroke={selectedMetric.color}
+                                                    strokeWidth={3}
+                                                    strokeLinecap="round"
+                                                    fill={`url(#${selectedMetric.gradientId})`}
+                                                    connectNulls={false}
+                                                    dot={{
+                                                        r: 3.5,
+                                                        fill: selectedMetric.color,
+                                                        stroke: "#171c17",
+                                                        strokeWidth: 2,
+                                                    }}
+                                                    activeDot={{
+                                                        r: 6,
+                                                        fill: selectedMetric.color,
+                                                        stroke: "#f2eaff",
+                                                        strokeWidth: 2,
+                                                        style: {
+                                                            filter: "drop-shadow(0 0 7px rgba(192, 132, 252, 0.8))",
+                                                        },
+                                                    }}
+                                                    style={{
+                                                        filter: "url(#chartLineGlow)",
+                                                    }}
+                                                />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
                                 </div>
                             </>
                         )}

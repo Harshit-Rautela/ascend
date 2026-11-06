@@ -6,7 +6,7 @@ const nutrients = [
   { key: "vitamin_c", name: "Vitamin C", unit: "mg", category: "VITAMIN", dailyTarget: 90 },
   { key: "vitamin_d", name: "Vitamin D", unit: "mcg", category: "VITAMIN", dailyTarget: 15 },
   { key: "vitamin_e", name: "Vitamin E", unit: "mg", category: "VITAMIN", dailyTarget: 15 },
-  { key: "vitamin_k", name: "Vitamin K", unit: "mcg", category: "VITAMIN", dailyTarget: 120 },
+  { key: "vitamin_k", name: "Vitamin K", unit: "mcg", category: "VITAMIN", dailyTarget: 110 },
 
   { key: "vitamin_b1", name: "Vitamin B1 (Thiamin)", unit: "mg", category: "VITAMIN", dailyTarget: 1.2 },
   { key: "vitamin_b2", name: "Vitamin B2 (Riboflavin)", unit: "mg", category: "VITAMIN", dailyTarget: 1.3 },

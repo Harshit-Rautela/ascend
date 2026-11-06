@@ -43,6 +43,10 @@ function formatDate(date) {
   return `${year}-${month}-${day}`;
 }
 
+function getLocalToday() {
+  return formatDate(new Date());
+}
+
 function formatShortDate(dateString) {
   return new Date(`${dateString}T12:00:00`).toLocaleDateString(
     "en-IN",
@@ -124,7 +128,19 @@ export default function NutritionInsights() {
   }, [period, selectedDate]);
 
 
-  const totals = days.reduce(
+
+  // Today's date in the user's local timezone (IST).
+  const today = getLocalToday();
+
+  // Only days with at least one entry, and never future dates.
+  const loggedDays = days.filter(
+    (day) =>
+      day.date <= today &&
+      Number(day.entries || 0) > 0
+  );
+
+  // Calculate totals only from eligible logged days.
+  const totals = loggedDays.reduce(
     (acc, day) => ({
       calories: acc.calories + Number(day.calories || 0),
       protein: acc.protein + Number(day.protein || 0),
@@ -132,15 +148,22 @@ export default function NutritionInsights() {
       fat: acc.fat + Number(day.fat || 0),
       entries: acc.entries + Number(day.entries || 0),
     }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0, entries: 0 }
+    {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      entries: 0,
+    }
   );
 
-  const daysWithEntries = days.filter(
-    (day) => Number(day.entries || 0) > 0
-  ).length;
+  const daysWithEntries = loggedDays.length;
 
+  // Return null when there are no logged days.
   const average = (value) =>
-    days.length ? Math.round(value / days.length) : 0;
+    daysWithEntries > 0
+      ? Math.round(value / daysWithEntries)
+      : null;
 
   const macroData = [
     { name: "Protein", value: Math.round(totals.protein) },
@@ -148,14 +171,13 @@ export default function NutritionInsights() {
     { name: "Fat", value: Math.round(totals.fat) },
   ].filter((item) => item.value > 0);
 
-  const highestCalorieDay = days.reduce(
+  const highestCalorieDay = loggedDays.reduce(
     (best, day) =>
       !best || Number(day.calories || 0) > Number(best.calories || 0)
         ? day
         : best,
     null
   );
-
   const previousWeek = () => {
     setWeekStart((current) => {
       const next = new Date(current);
@@ -307,8 +329,12 @@ export default function NutritionInsights() {
                 <Flame size={20} />
               </div>
               <p>Average daily calories</p>
-              <h2>{number(average(totals.calories)).toLocaleString("en-IN")}</h2>
-              <span>kcal per calendar day</span>
+              <h2>
+                {average(totals.calories) === null
+                  ? "--"
+                  : average(totals.calories).toLocaleString("en-IN")}
+              </h2>
+              <span>kcal · Avg over {daysWithEntries} logged days</span>
             </article>
 
             <article className="ni-stat-card">
@@ -316,8 +342,13 @@ export default function NutritionInsights() {
                 <Beef size={20} />
               </div>
               <p>Average daily protein</p>
-              <h2>{average(totals.protein)}<small> g</small></h2>
-              <span>Across the selected week</span>
+              <h2>
+                {average(totals.protein) === null
+                  ? "--"
+                  : average(totals.protein)}
+                {average(totals.protein) !== null && <small> g</small>}
+              </h2>
+              <span>Avg over {daysWithEntries} logged days</span>
             </article>
 
             <article className="ni-stat-card">

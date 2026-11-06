@@ -1,9 +1,7 @@
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider            = "prisma-client"
+  output              = "../generated/prisma"
   importFileExtension = "ts"
-
 }
 
 datasource db {
@@ -21,16 +19,15 @@ model WeightEntry {
 }
 
 model NutritionEntry {
-  id        String   @id @default(cuid())
-  foodName  String
-  mealType  String
-  calories  Float
-  protein   Float
-  carbs     Float
-  fat       Float
-  entryDate DateTime @db.Date
-  createdAt DateTime @default(now())
-
+  id              String           @id @default(cuid())
+  foodName        String
+  mealType        String
+  calories        Float
+  protein         Float
+  carbs           Float
+  fat             Float
+  entryDate       DateTime         @db.Date
+  createdAt       DateTime         @default(now())
   nutrientIntakes NutrientIntake[]
 
   @@index([entryDate])
@@ -38,28 +35,27 @@ model NutritionEntry {
 }
 
 model Nutrient {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  name      String
-  unit      String
-  category  String
-  dailyTarget Float? // Daily target in the nutrient's existing unit
-  createdAt DateTime @default(now())
-  intakes   NutrientIntake[]
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String
+  unit        String
+  category    String
+  createdAt   DateTime         @default(now())
+  dailyTarget Float?
+  intakes     NutrientIntake[]
 }
 
 model NutrientIntake {
-  id               String   @id @default(cuid())
+  id               String          @id @default(cuid())
   nutrientId       String
   amount           Float
   source           String
   sourceName       String?
   nutritionEntryId String?
-  entryDate        DateTime @db.Date
-  createdAt        DateTime @default(now())
-
-  nutrient       Nutrient        @relation(fields: [nutrientId], references: [id], onDelete: Restrict)
-  nutritionEntry NutritionEntry? @relation(fields: [nutritionEntryId], references: [id], onDelete: Cascade)
+  entryDate        DateTime        @db.Date
+  createdAt        DateTime        @default(now())
+  nutrient         Nutrient        @relation(fields: [nutrientId], references: [id])
+  nutritionEntry   NutritionEntry? @relation(fields: [nutritionEntryId], references: [id], onDelete: Cascade)
 
   @@index([entryDate])
   @@index([nutrientId, entryDate])
@@ -67,118 +63,122 @@ model NutrientIntake {
   @@index([nutritionEntryId])
 }
 
-
 model Exercise {
-  id              String   @id @default(cuid())
-  name            String   @unique
-  category        String   // STRENGTH, CARDIO, MOBILITY, OTHER
-  equipment       String?
-  measurementType String   // WEIGHT_REPS, BODYWEIGHT_REPS, DURATION, DISTANCE, CARDIO
-  description     String?
-  isCustom        Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  planExercises   PlanExercise[]
+  id               String            @id @default(cuid())
+  name             String            @unique
+  category         String
+  equipment        String?
+  measurementType  String
+  description      String?
+  isCustom         Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  exerciseType     String?
+  imageUrl         String?
+  movementPattern  String?
+  primaryMuscle    String?
+  secondaryMuscles String[]          @default([])
+  videoUrl         String?
+  imagePublicId    String?
+  videoPublicId    String?
+  planExercises    PlanExercise[]
   workoutExercises WorkoutExercise[]
 
   @@index([category])
+  @@index([primaryMuscle])
+  @@index([exerciseType])
+  @@index([movementPattern])
 }
 
 model TrainingPlan {
-  id        String   @id @default(cuid())
-  name      String   @default("My Weekly Plan")
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  days PlanDay[]
+  id        String    @id @default(cuid())
+  name      String    @default("My Weekly Plan")
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  days      PlanDay[]
 }
 
 model PlanDay {
-  id             String   @id @default(cuid())
+  id             String         @id @default(cuid())
   trainingPlanId String
-  dayOfWeek      Int      // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  isRestDay      Boolean  @default(false)
+  dayOfWeek      Int
+  isRestDay      Boolean        @default(false)
+  targetMuscles  String[]       @default([])
   notes          String?
-
-  trainingPlan TrainingPlan  @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
-  exercises    PlanExercise[]
+  trainingPlan   TrainingPlan   @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+  exercises      PlanExercise[]
 
   @@unique([trainingPlanId, dayOfWeek])
   @@index([trainingPlanId])
 }
 
 model PlanExercise {
-  id              String @id @default(cuid())
-  planDayId       String
-  exerciseId      String
-  sortOrder       Int    @default(0)
-  targetSets      Int?
-  targetReps      Int?
-  targetWeightKg  Float?
+  id                    String   @id @default(cuid())
+  planDayId             String
+  exerciseId            String
+  sortOrder             Int      @default(0)
+  targetSets            Int?
+  targetReps            Int?
+  targetWeightKg        Float?
   targetDurationSeconds Int?
   targetDistanceMeters  Float?
-  notes           String?
-
-  planDay  PlanDay  @relation(fields: [planDayId], references: [id], onDelete: Cascade)
-  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  notes                 String?
+  exercise              Exercise @relation(fields: [exerciseId], references: [id])
+  planDay               PlanDay  @relation(fields: [planDayId], references: [id], onDelete: Cascade)
 
   @@unique([planDayId, sortOrder])
   @@index([exerciseId])
 }
 
 model WorkoutSession {
-  id              String   @id @default(cuid())
-  performedAt     DateTime @default(now())
+  id              String            @id @default(cuid())
+  performedAt     DateTime          @default(now())
   durationMinutes Int?
   notes           String?
-  status          String   @default("COMPLETED") // IN_PROGRESS, COMPLETED
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  exercises WorkoutExercise[]
+  status          String            @default("COMPLETED")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  exercises       WorkoutExercise[]
 
   @@index([performedAt])
   @@index([status, performedAt])
 }
 
 model WorkoutExercise {
-  id              String @id @default(cuid())
+  id               String         @id @default(cuid())
   workoutSessionId String
-  exerciseId      String
-  sortOrder       Int    @default(0)
-  notes           String?
-
-  workoutSession WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
-  exercise       Exercise      @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
-  sets           WorkoutSet[]
+  exerciseId       String
+  sortOrder        Int            @default(0)
+  notes            String?
+  exercise         Exercise       @relation(fields: [exerciseId], references: [id])
+  workoutSession   WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  sets             WorkoutSet[]
 
   @@unique([workoutSessionId, sortOrder])
   @@index([exerciseId])
 }
 
 model WorkoutSet {
-  id                 String  @id @default(cuid())
-  workoutExerciseId  String
-  setNumber          Int
-  weightKg           Float?
-  reps               Int?
-  durationSeconds    Int?
-  distanceMeters     Float?
-  isCompleted        Boolean @default(false)
-  notes              String?
-
-  workoutExercise WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+  id                String          @id @default(cuid())
+  workoutExerciseId String
+  setNumber         Int
+  weightKg          Float?
+  reps              Int?
+  durationSeconds   Int?
+  distanceMeters    Float?
+  isCompleted       Boolean         @default(false)
+  notes             String?
+  workoutExercise   WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
 
   @@unique([workoutExerciseId, setNumber])
 }
 
 model BodyMeasurement {
   id          String   @id @default(cuid())
-  measurement String   // WAIST, CHEST, ARM, THIGH, BODY_FAT, etc.
+  measurement String
   value       Float
-  unit        String   // cm, kg, percent, etc.
+  unit        String
   measuredAt  DateTime @default(now())
   notes       String?
   createdAt   DateTime @default(now())
@@ -186,15 +186,13 @@ model BodyMeasurement {
   @@index([measurement, measuredAt])
 }
 
-
 model Habit {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   title       String
   description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   completions HabitCompletion[]
 
   @@index([isActive])
@@ -205,8 +203,7 @@ model HabitCompletion {
   habitId        String
   completionDate DateTime @db.Date
   createdAt      DateTime @default(now())
-
-  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  habit          Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
 
   @@unique([habitId, completionDate])
   @@index([completionDate])
@@ -220,4 +217,44 @@ model WaterIntake {
 
   @@index([entryDate])
   @@map("water_intakes")
+}
+
+model StepEntry {
+  id        String   @id @default(cuid())
+  steps     Int
+  entryDate DateTime @unique @db.Date
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([entryDate])
+}
+
+
+model SleepEntry {
+  id                String   @id @default(cuid())
+  sleepDate         DateTime @unique @db.Date
+
+  bedtime           String
+  wakeTime          String
+
+  timeInBedMinutes Int 
+  durationMinutes   Int?
+
+  quality           Int
+  sleepScore        Float?
+
+  awakeMinutes      Int?
+  lightSleepMinutes Int?
+  deepSleepMinutes  Int?
+
+  heartRate         Int?
+  hrv               Int?
+  energy            Int?
+
+  notes             String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([sleepDate])
 }

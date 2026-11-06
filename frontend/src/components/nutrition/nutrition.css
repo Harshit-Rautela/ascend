@@ -2613,3 +2613,61 @@ transform: none;
     justify-content: space-between;
   }
 }
+
+
+.nutrition-history-period-switch {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid #343a34;
+    border-radius: 10px;
+    background: #1c211c;
+}
+
+.nutrition-history-period-switch button {
+    border: 0;
+    border-radius: 7px;
+    padding: 8px 14px;
+    background: transparent;
+    color: #9b9f96;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.nutrition-history-period-switch button.active {
+    background: #c6f36a;
+    color: #171c17;
+}
+
+.nutrition-history-period-switch button:hover:not(.active) {
+    color: #f2f5ed;
+}
+
+/* Monthly chart horizontal scrolling */
+.nutrition-history-chart.monthly-chart {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #66704f transparent;
+}
+
+.monthly-chart-inner {
+  width: 1100px;
+  min-width: 1100px;
+  height: 100%;
+}
+
+/* Keep weekly chart unchanged */
+.nutrition-history-chart:not(.monthly-chart) {
+  overflow: hidden;
+}
+
+.monthly-chart-inner {
+  width: max(100%, 1100px);
+  min-width: 1100px;
+  height: 100%;
+}

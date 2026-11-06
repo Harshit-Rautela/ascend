@@ -16,6 +16,7 @@ import {
   GlassWater,
   Plus,
   Weight,
+  Footprints
 } from "lucide-react";
 
 import DailyQuotes from "./DailyQuotes";
@@ -52,6 +53,13 @@ function Dashboard() {
   const [waterLoading, setWaterLoading] = useState(true);
   const [waterSaving, setWaterSaving] = useState(false);
   const [waterError, setWaterError] = useState("");
+  const [stepsEntry, setStepsEntry] = useState(null);
+  const [stepsInput, setStepsInput] = useState("");
+  const [stepsLoading, setStepsLoading] = useState(true);
+  const [stepsSaving, setStepsSaving] = useState(false);
+  const [stepsError, setStepsError] = useState("");
+
+  const [stepsGoal] = useState(10000);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -204,10 +212,100 @@ function Dashboard() {
       setWaterSaving(false);
     }
   }
+  async function saveSteps(event) {
+    event.preventDefault();
+
+    if (stepsSaving) return;
+
+    const steps = Number(stepsInput);
+
+    if (
+      !Number.isSafeInteger(steps) ||
+      steps < 0 ||
+      steps > 2147483647
+    ) {
+      setStepsError("Enter a valid non-negative whole number.");
+      return;
+    }
+
+    setStepsSaving(true);
+    setStepsError("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/steps`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          steps,
+          date: getLocalDateString(),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Could not save steps.");
+      }
+
+      setStepsEntry(data.entry);
+      setStepsInput(String(data.entry.steps));
+    } catch (error) {
+      console.error("Steps saving error:", error);
+      setStepsError(error.message || "Could not save steps.");
+    } finally {
+      setStepsSaving(false);
+    }
+  }
   useEffect(() => {
     const controller = new AbortController();
 
     loadWaterIntake(controller.signal);
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadSteps() {
+      setStepsLoading(true);
+      setStepsError("");
+
+      try {
+        const date = getLocalDateString();
+
+        const response = await fetch(
+          `${API_BASE_URL}/steps?date=${date}`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error("Could not load step count.");
+        }
+
+        const data = await response.json();
+
+        if (controller.signal.aborted) return;
+
+        setStepsEntry(data.entry ?? null);
+        setStepsInput(
+          data.entry ? String(data.entry.steps) : ""
+        );
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error("Steps loading error:", error);
+          setStepsError("Unable to load today's steps.");
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setStepsLoading(false);
+        }
+      }
+    }
+
+    loadSteps();
 
     return () => controller.abort();
   }, []);
@@ -232,6 +330,15 @@ function Dashboard() {
     workout?.title ||
     workout?.workoutName ||
     "Today's workout";
+
+  const currentSteps = stepsEntry?.steps ?? 0;
+
+  const stepsPercentage =
+    stepsGoal > 0
+      ? Math.min(100, Math.round((currentSteps / stepsGoal) * 100))
+      : 0;
+
+  const remainingSteps = Math.max(0, stepsGoal - currentSteps);
 
   return (
     <main className="dashboard-content">
@@ -377,8 +484,8 @@ function Dashboard() {
             <div
               style={{
                 width: `${waterLoading || waterGoalMl <= 0
-                    ? 0
-                    : Math.min(100, (waterTotalMl / waterGoalMl) * 100)
+                  ? 0
+                  : Math.min(100, (waterTotalMl / waterGoalMl) * 100)
                   }%`,
               }}
             />
@@ -507,43 +614,110 @@ function Dashboard() {
         {/* Right column */}
         <div className="dashboard-side-column">
           {/* Current weight */}
-          <article className="dashboard-panel dashboard-weight-card">
+
+          {/* Daily step count */}
+          <article className="dashboard-panel dashboard-steps-card">
+
             <div className="dashboard-side-card-heading">
               <span className="dashboard-side-icon blue">
-                <Scale size={20} />
+                <Footprints size={20} />
               </span>
 
               <div>
-                <h2>Weight check-in</h2>
-                <p>Your latest recorded weight</p>
+                <h2>Daily steps</h2>
+                <p>Your activity today</p>
               </div>
             </div>
 
-            <div className="dashboard-weight-display">
+            <div className="dashboard-steps-display">
               <div>
                 <strong>
-                  {currentWeight != null
-                    ? Number(currentWeight).toFixed(1)
-                    : "—"}
+                  {stepsLoading
+                    ? "—"
+                    : currentSteps.toLocaleString("en-IN")}
                 </strong>
-                <span>kg</span>
+
+                <span>steps</span>
               </div>
 
-              <div className="dashboard-weight-badge">
-                <TrendingUp size={15} />
-                <span>
-                  {weightEntry?.entryDate ? "Latest entry" : "No entry yet"}
-                </span>
-              </div>
-            </div>
-
-            <div className="dashboard-weight-footer">
-              <HeartPulse size={15} />
-              <span>
-                Progress is personal. Focus on your own journey.
+              <span className="dashboard-steps-goal">
+                Goal: {stepsGoal.toLocaleString("en-IN")}
               </span>
             </div>
+
+            <div className="dashboard-steps-progress">
+              <div
+                style={{
+                  width: `${stepsLoading ? 0 : stepsPercentage}%`,
+                }}
+              />
+            </div>
+
+            <div className="dashboard-steps-progress-info">
+              <span>
+                {stepsLoading
+                  ? "Loading steps..."
+                  : `${stepsPercentage}% completed`}
+              </span>
+
+              <span>
+                {stepsLoading
+                  ? ""
+                  : remainingSteps === 0
+                    ? "Goal reached!"
+                    : `${remainingSteps.toLocaleString("en-IN")} remaining`}
+              </span>
+            </div>
+
+            <form
+              className="dashboard-steps-form"
+              onSubmit={saveSteps}
+            >
+              <label htmlFor="daily-steps-input">
+                Update your steps
+              </label>
+
+              <div className="dashboard-steps-input-row">
+                <input
+                  id="daily-steps-input"
+                  type="number"
+                  min="0"
+                  max="2147483647"
+                  step="1"
+                  placeholder="Enter step count"
+                  value={stepsInput}
+                  onChange={(event) => setStepsInput(event.target.value)}
+                  disabled={stepsLoading || stepsSaving}
+                />
+
+                <button
+                  type="submit"
+                  disabled={
+                    stepsLoading ||
+                    stepsSaving ||
+                    stepsInput.trim() === ""
+                  }
+                >
+                  {stepsSaving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+
+            {stepsError && (
+              <p className="dashboard-steps-error" role="alert">
+                {stepsError}
+              </p>
+            )}
+
+            <div className="dashboard-steps-footer">
+              <Footprints size={15} />
+              <span>
+                Every step counts. Keep moving forward.
+              </span>
+            </div>
+
           </article>
+
 
           {/* Workout */}
           <article className="dashboard-panel dashboard-workout-card">

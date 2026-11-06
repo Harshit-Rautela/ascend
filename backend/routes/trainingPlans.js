@@ -24,7 +24,7 @@ const dayInclude = {
 
 // GET /api/training-plans — retrieve the active weekly plan
 router.get("/", async (req, res) => {
-    console.log("In training plans")
+  console.log("In training plans")
   try {
     const plan = await prisma.trainingPlan.findFirst({
       where: { isActive: true },
@@ -112,13 +112,38 @@ router.post("/", async (req, res) => {
 router.put("/days/:dayOfWeek", async (req, res) => {
   try {
     const dayOfWeek = Number(req.params.dayOfWeek);
-    const { isRestDay = false, notes = null, exercises = [] } = req.body ?? {};
-
+    // const { isRestDay = false, notes = null, exercises = [] } = req.body ?? {};
+    const {
+      isRestDay = false,
+      notes = null,
+      targetMuscles = [],
+      exercises = [],
+    } = req.body ?? {};
     if (!validDayOfWeek(dayOfWeek)) {
       return res.status(400).json({
         error: "dayOfWeek must be an integer from 0 (Sunday) to 6 (Saturday).",
       });
     }
+    if (
+      !Array.isArray(targetMuscles) ||
+      targetMuscles.length > 20 ||
+      targetMuscles.some(
+        (muscle) =>
+          typeof muscle !== "string" ||
+          !muscle.trim() ||
+          muscle.trim().length > 50
+      )
+    ) {
+      return res.status(400).json({
+        error: "Invalid target muscles.",
+      });
+    }
+
+    const normalizedMuscles = [
+      ...new Set(
+        targetMuscles.map((muscle) => muscle.trim().toUpperCase())
+      ),
+    ];
 
     if (
       typeof isRestDay !== "boolean" ||
@@ -131,9 +156,9 @@ router.put("/days/:dayOfWeek", async (req, res) => {
       });
     }
 
-    if (isRestDay && exercises.length > 0) {
+    if (isRestDay && (exercises.length > 0 || normalizedMuscles.length > 0)) {
       return res.status(400).json({
-        error: "A rest day cannot contain planned exercises.",
+        error: "A rest day cannot contain target muscles or planned exercises.",
       });
     }
 
@@ -216,10 +241,12 @@ router.put("/days/:dayOfWeek", async (req, res) => {
           trainingPlanId: plan.id,
           dayOfWeek,
           isRestDay,
+          targetMuscles: isRestDay ? [] : normalizedMuscles,
           notes: notes?.trim() || null,
         },
         update: {
           isRestDay,
+          targetMuscles: isRestDay ? [] : normalizedMuscles,
           notes: notes?.trim() || null,
         },
       });
@@ -269,6 +296,7 @@ router.put("/days/:dayOfWeek", async (req, res) => {
 
     return res.status(500).json({
       error: "Failed to update training plan day.",
+      details: error.message,
     });
   }
 });

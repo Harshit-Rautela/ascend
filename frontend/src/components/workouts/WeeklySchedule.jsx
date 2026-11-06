@@ -435,14 +435,14 @@ function WeeklySchedule() {
                     <p>Plan your sessions. Build consistency. Get stronger.</p>
                 </div>
 
-                <button
+                {/* <button
                     className="workout-primary-button"
                     onClick={handleCreatePlan}
                     disabled={creatingPlan}
                 >
                     <Plus size={18} />
                     {creatingPlan ? "Creating..." : "Create plan"}
-                </button>
+                </button> */}
             </div>
 
             {error && (
@@ -524,10 +524,10 @@ function WeeklySchedule() {
 
                                     <span
                                         className={`workouts-day-indicator ${dayData?.isRestDay
-                                                ? "rest"
-                                                : hasExercises
-                                                    ? "planned"
-                                                    : ""
+                                            ? "rest"
+                                            : hasExercises
+                                                ? "planned"
+                                                : ""
                                             }`}
                                     />
                                 </button>
@@ -585,6 +585,32 @@ function WeeklySchedule() {
                                     Progress saved
                                 </div>
                             )}
+
+                        {!selectedDayData?.isRestDay &&
+                            selectedDayData?.targetMuscles?.length > 0 && (
+                                <section className="workouts-target-muscles">
+                                    <div className="workouts-target-muscles-heading">
+                                        <span className="workouts-target-muscles-label">
+                                            TARGET MUSCLES
+                                        </span>
+                                        <span className="workouts-target-muscles-count">
+                                            {selectedDayData.targetMuscles.length} selected
+                                        </span>
+                                    </div>
+
+                                    <div className="workouts-target-muscles-list">
+                                        {selectedDayData.targetMuscles.map((muscle) => (
+                                            <span
+                                                key={muscle}
+                                                className="workouts-target-muscle-badge"
+                                            >
+                                                {muscle}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
+
 
                         {performanceError && (
                             <div className="workouts-error" role="alert">

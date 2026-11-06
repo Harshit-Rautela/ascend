@@ -1,6 +1,13 @@
 
-import { useEffect, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Plus,
+  Trash2,
+  X,
+  Search,
+  ChevronDown,
+  Check,
+} from "lucide-react";
 
 const EXERCISE_API = "http://localhost:5000/api/exercise";
 const PLAN_API = "http://localhost:5000/api/training-plans";
@@ -50,6 +57,194 @@ function toFormExercise(item) {
   };
 }
 
+
+function ExerciseDropdown({
+  exercises,
+  selectedExercise,
+  onSelect,
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleOutsideClick(event) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    }
+
+    function handleEscape(event) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        setSearch("");
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  const availableExercises = [
+    ...exercises,
+    ...(selectedExercise &&
+      !exercises.some(
+        (exercise) => exercise.id === selectedExercise.id
+      )
+      ? [selectedExercise]
+      : []),
+  ];
+
+  const filteredResults = availableExercises.filter((exercise) => {
+    const query = search.trim().toLowerCase();
+
+    return (
+      exercise.name?.toLowerCase().includes(query) ||
+      exercise.primaryMuscle?.toLowerCase().includes(query) ||
+      exercise.equipment?.toLowerCase().includes(query)
+    );
+  });
+
+  function handleSelect(exercise) {
+    onSelect(exercise.id);
+    setIsOpen(false);
+    setSearch("");
+  }
+
+  return (
+    <div className="exercise-dropdown" ref={dropdownRef}>
+      <button
+        type="button"
+        className={`exercise-dropdown-trigger ${isOpen ? "is-open" : ""
+          }`}
+        onClick={() => setIsOpen((current) => !current)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <span
+          className={
+            selectedExercise
+              ? "exercise-dropdown-value"
+              : "exercise-dropdown-placeholder"
+          }
+        >
+          {selectedExercise?.name || "Choose an exercise"}
+        </span>
+
+        <ChevronDown
+          size={18}
+          className="exercise-dropdown-chevron"
+        />
+      </button>
+
+      {isOpen && (
+        <div className="exercise-dropdown-menu">
+          <div className="exercise-dropdown-search">
+            <Search size={16} />
+
+            <input
+              type="text"
+              autoFocus
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search exercises..."
+              aria-label="Search exercises"
+            />
+
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+
+          <div
+            className="exercise-dropdown-results"
+            role="listbox"
+            aria-label="Available exercises"
+          >
+            {filteredResults.length > 0 ? (
+              filteredResults.map((exercise) => {
+                const isSelected =
+                  selectedExercise?.id === exercise.id;
+
+                return (
+                  <button
+                    type="button"
+                    key={exercise.id}
+                    className={`exercise-dropdown-option ${isSelected ? "selected" : ""
+                      }`}
+                    onClick={() => handleSelect(exercise)}
+                    role="option"
+                    aria-selected={isSelected}
+                  >
+                    <span className="exercise-dropdown-option-info">
+                      <strong>{exercise.name}</strong>
+
+                      <div className="exercise-dropdown-option-meta">
+                        {exercise.primaryMuscle && (
+                          <span className="exercise-muscle-tag">
+                            {exercise.primaryMuscle}
+                          </span>
+                        )}
+
+                        {exercise.equipment && (
+                          <span className="exercise-equipment">
+                            {exercise.equipment}
+                          </span>
+                        )}
+
+                        {!exercise.primaryMuscle && !exercise.equipment && (
+                          <span className="exercise-equipment">Exercise</span>
+                        )}
+                      </div>
+                    </span>
+
+                    {isSelected && (
+                      <Check
+                        size={17}
+                        className="exercise-dropdown-check"
+                      />
+                    )}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="exercise-dropdown-empty">
+                <Search size={20} />
+                <span>No exercises found</span>
+                <small>Try another search term</small>
+              </div>
+            )}
+          </div>
+
+          <div className="exercise-dropdown-footer">
+            {filteredResults.length}{" "}
+            {filteredResults.length === 1
+              ? "exercise"
+              : "exercises"}{" "}
+            available
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function toNumberOrNull(value) {
   if (value === "" || value == null) return null;
   return Number(value);
@@ -64,12 +259,27 @@ export default function WeeklyPlanEditor({
   const [exerciseLibrary, setExerciseLibrary] = useState([]);
   const [isRestDay, setIsRestDay] = useState(day?.isRestDay ?? false);
   const [dayNotes, setDayNotes] = useState(day?.notes ?? "");
+  const [targetMuscles, setTargetMuscles] = useState(
+    day?.targetMuscles ?? []
+  );
   const [exercises, setExercises] = useState(
     day?.exercises?.map(toFormExercise) ?? []
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const availableMuscles = [
+    ...new Set(
+      exerciseLibrary
+        .map((exercise) => exercise.primaryMuscle?.trim())
+        .filter(Boolean)
+        .map((muscle) => muscle.toUpperCase())
+    ),
+  ].sort();
+
+  const filteredExercises = exerciseLibrary.filter((exercise) =>
+    targetMuscles.includes(exercise.primaryMuscle?.trim().toUpperCase())
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -129,9 +339,17 @@ export default function WeeklyPlanEditor({
 
     if (checked) {
       setExercises([]);
+      setTargetMuscles([]);
     }
   }
 
+  function toggleTargetMuscle(muscle) {
+    setTargetMuscles((current) =>
+      current.includes(muscle)
+        ? current.filter((item) => item !== muscle)
+        : [...current, muscle]
+    );
+  }
   async function handleSave(event) {
     event.preventDefault();
     setError("");
@@ -174,9 +392,8 @@ export default function WeeklyPlanEditor({
             number < 0 ||
             (field.step === "1" && !Number.isInteger(number))
           ) {
-            throw new Error(`${field.label} must be a valid non-negative ${
-              field.step === "1" ? "integer" : "number"
-            }.`);
+            throw new Error(`${field.label} must be a valid non-negative ${field.step === "1" ? "integer" : "number"
+              }.`);
           }
 
           payload[field.key] = number;
@@ -223,6 +440,7 @@ export default function WeeklyPlanEditor({
           body: JSON.stringify({
             isRestDay,
             notes: dayNotes.trim() || null,
+            targetMuscles: isRestDay ? [] : targetMuscles,
             exercises: isRestDay ? [] : payloadExercises,
           }),
         }
@@ -301,12 +519,42 @@ export default function WeeklyPlanEditor({
 
             {!isRestDay && (
               <>
+                <div className="plan-editor-muscles">
+                  <div className="plan-editor-muscles-heading">
+                    <h3>Target muscles</h3>
+                    <span>Select the muscles you want to train</span>
+                  </div>
+
+                  <div className="plan-editor-muscle-options">
+                    {availableMuscles.map((muscle) => (
+                      <label
+                        key={muscle}
+                        className={`plan-editor-muscle-option ${targetMuscles.includes(muscle) ? "selected" : ""
+                          }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={targetMuscles.includes(muscle)}
+                          onChange={() => toggleTargetMuscle(muscle)}
+                        />
+                        {muscle}
+                      </label>
+                    ))}
+                  </div>
+
+                  {targetMuscles.length === 0 && (
+                    <p className="workouts-muted-label">
+                      Select at least one target muscle to choose exercises.
+                    </p>
+                  )}
+                </div>
                 <div className="plan-editor-exercises-heading">
                   <h3>Exercises</h3>
                   <button
                     type="button"
                     className="workouts-add-button"
                     onClick={addExercise}
+                    disabled={targetMuscles.length === 0}
                   >
                     <Plus size={16} /> Add exercise
                   </button>
@@ -326,24 +574,37 @@ export default function WeeklyPlanEditor({
                         ? ["targetDistanceMeters"]
                         : measurementType === "CARDIO"
                           ? [
-                              "targetDurationSeconds",
-                              "targetDistanceMeters",
-                            ]
+                            "targetDurationSeconds",
+                            "targetDistanceMeters",
+                          ]
                           : measurementType === "BODYWEIGHT_REPS"
                             ? ["targetSets", "targetReps"]
                             : [
-                                "targetSets",
-                                "targetReps",
-                                "targetWeightKg",
-                              ];
+                              "targetSets",
+                              "targetReps",
+                              "targetWeightKg",
+                            ];
 
                   return (
+
                     <article className="plan-editor-exercise" key={index}>
                       <div className="plan-editor-exercise-heading">
-                        <strong>Exercise {index + 1}</strong>
+                        <div className="plan-editor-exercise-title">
+                          <span className="plan-editor-exercise-number">
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+
+                          <div className="plan-editor-exercise-title-text">
+                            <strong>Exercise {index + 1}</strong>
+                            <span>
+                              {selectedExercise?.name || "Choose an exercise"}
+                            </span>
+                          </div>
+                        </div>
+
                         <button
                           type="button"
-                          className="workouts-icon-button"
+                          className="workouts-icon-button plan-editor-remove-button"
                           onClick={() => removeExercise(index)}
                           aria-label={`Remove exercise ${index + 1}`}
                         >
@@ -351,71 +612,71 @@ export default function WeeklyPlanEditor({
                         </button>
                       </div>
 
-                      <label className="plan-editor-field">
-                        Exercise
-                        <select
-                          value={item.exerciseId}
-                          onChange={(event) =>
-                            updateExercise(
-                              index,
-                              "exerciseId",
-                              event.target.value
-                            )
-                          }
-                          required
-                        >
-                          <option value="">Choose an exercise</option>
-                          {exerciseLibrary.map((exercise) => (
-                            <option
-                              key={exercise.id}
-                              value={exercise.id}
-                            >
-                              {exercise.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      <div className="plan-editor-exercise-body">
 
-                      {selectedExercise && (
-                        <div className="plan-editor-targets">
-                          {FIELDS.filter((field) =>
-                            visibleFields.includes(field.key)
-                          ).map((field) => (
-                            <label
-                              className="plan-editor-field"
-                              key={field.key}
-                            >
-                              {field.label}
-                              <input
-                                type="number"
-                                min="0"
-                                step={field.step}
-                                value={item[field.key]}
-                                onChange={(event) =>
-                                  updateExercise(
-                                    index,
-                                    field.key,
-                                    event.target.value
-                                  )
-                                }
-                              />
-                            </label>
-                          ))}
+                        <div className="plan-editor-field plan-editor-exercise-select">
+                          <label>Exercise</label>
+
+                          <ExerciseDropdown
+                            exercises={filteredExercises}
+                            selectedExercise={selectedExercise}
+                            onSelect={(exerciseId) =>
+                              updateExercise(index, "exerciseId", exerciseId)
+                            }
+                          />
                         </div>
-                      )}
 
-                      <label className="plan-editor-field">
-                        Exercise notes
-                        <input
-                          value={item.notes}
-                          maxLength={500}
-                          onChange={(event) =>
-                            updateExercise(index, "notes", event.target.value)
-                          }
-                          placeholder="Optional"
-                        />
-                      </label>
+
+                        {selectedExercise && (
+                          <div className="plan-editor-target-section">
+                            <span className="plan-editor-section-label">
+                              TRAINING TARGETS
+                            </span>
+
+                            <div className="plan-editor-targets">
+                              {FIELDS.filter((field) =>
+                                visibleFields.includes(field.key)
+                              ).map((field) => (
+                                <label
+                                  className="plan-editor-field"
+                                  key={field.key}
+                                >
+                                  {field.label}
+
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step={field.step}
+                                    value={item[field.key]}
+                                    onChange={(event) =>
+                                      updateExercise(
+                                        index,
+                                        field.key,
+                                        event.target.value
+                                      )
+                                    }
+                                  />
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <label className="plan-editor-field plan-editor-notes-field">
+                          Exercise notes
+
+                          <input
+                            value={item.notes}
+                            maxLength={500}
+                            onChange={(event) =>
+                              updateExercise(index, "notes", event.target.value)
+                            }
+                            placeholder="Add instructions or reminders..."
+                          />
+                        </label>
+                      </div>
                     </article>
+
                   );
                 })}
               </>

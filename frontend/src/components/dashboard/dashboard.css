@@ -1264,3 +1264,187 @@
   color: #ffb4ab;
   font-size: 11px;
 }
+
+
+/* =========================================
+   DAILY STEP COUNT CARD
+========================================= */
+
+.dashboard-steps-card {
+  padding: 22px;
+}
+
+/* Step count display */
+
+.dashboard-steps-display {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 27px 0 17px;
+}
+
+.dashboard-steps-display > div {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.dashboard-steps-display strong {
+  color: var(--dash-text);
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-steps-display > div > span {
+  color: var(--dash-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dashboard-steps-goal {
+  color: var(--dash-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Progress bar */
+
+.dashboard-steps-progress {
+  width: 100%;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #30372b;
+}
+
+.dashboard-steps-progress > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dash-lime);
+  transition: width 300ms ease;
+}
+
+.dashboard-steps-progress-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 9px;
+  color: var(--dash-muted);
+  font-size: 10px;
+}
+
+.dashboard-steps-progress-info span:first-child {
+  color: var(--dash-lime);
+  font-weight: 700;
+}
+
+/* Input form */
+
+.dashboard-steps-form {
+  margin-top: 23px;
+}
+
+.dashboard-steps-form label {
+  display: block;
+  margin-bottom: 9px;
+  color: var(--dash-text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.dashboard-steps-input-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.dashboard-steps-input-row input {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--dash-border);
+  border-radius: 9px;
+  outline: none;
+  background: #11140f;
+  color: var(--dash-text);
+  font-size: 12px;
+  transition: border-color 180ms ease;
+}
+
+.dashboard-steps-input-row input:focus {
+  border-color: var(--dash-lime);
+}
+
+.dashboard-steps-input-row input::placeholder {
+  color: #687061;
+}
+
+.dashboard-steps-input-row button {
+  flex-shrink: 0;
+  padding: 0 17px;
+  border: none;
+  border-radius: 9px;
+  background: var(--dash-lime);
+  color: #17200a;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: background 180ms ease, opacity 180ms ease;
+}
+
+.dashboard-steps-input-row button:hover:not(:disabled) {
+  background: #c6ff70;
+}
+
+.dashboard-steps-input-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Error */
+
+.dashboard-steps-error {
+  margin: 9px 0 0;
+  color: #ff9e91;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Footer */
+
+.dashboard-steps-footer {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 17px;
+  padding-top: 14px;
+  border-top: 1px solid #292e27;
+  color: var(--dash-muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.dashboard-steps-footer svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #91caff;
+}
+
+/* Responsive */
+
+@media (max-width: 520px) {
+  .dashboard-steps-display strong {
+    font-size: 34px;
+  }
+
+  .dashboard-steps-input-row button {
+    padding: 0 14px;
+  }
+}

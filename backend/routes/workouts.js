@@ -251,6 +251,17 @@ router.put("/", async (req, res) => {
                     },
                 });
             }
+            // Find the next available sort order in this workout session.
+            const maxSortOrder = await tx.workoutExercise.aggregate({
+                where: {
+                    workoutSessionId: session.id,
+                },
+                _max: {
+                    sortOrder: true,
+                },
+            });
+
+            let nextSortOrder = (maxSortOrder._max.sortOrder ?? -1) + 1;
 
             for (const item of exercises) {
                 const planned = plannedByExerciseId.get(item.exerciseId);
@@ -263,13 +274,11 @@ router.put("/", async (req, res) => {
                 });
 
                 if (!workoutExercise) {
-                    // Use the plan order, but avoid a sortOrder collision if the plan
-                    // contains different exercises added to this session over time.
                     workoutExercise = await tx.workoutExercise.create({
                         data: {
                             workoutSessionId: session.id,
                             exerciseId: item.exerciseId,
-                            sortOrder: planned.sortOrder,
+                            sortOrder: nextSortOrder++,
                         },
                     });
                 }

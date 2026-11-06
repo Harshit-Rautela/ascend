@@ -300,6 +300,7 @@ mealType must be exactly one of:
 
   try {
     result = JSON.parse(response.text);
+    console.dir(result, { depth: null, colors: true });
   } catch {
     throw new Error("Gemini returned invalid JSON.");
   }

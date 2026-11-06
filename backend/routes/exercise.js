@@ -6,120 +6,254 @@ const router = Router();
 console.log("Exercise router loaded");
 
 const validCategories = [
-    "STRENGTH",
-    "CARDIO",
-    "MOBILITY",
-    "OTHER",
+  "STRENGTH",
+  "CARDIO",
+  "MOBILITY",
+  "OTHER",
 ];
 
 const validMeasurementTypes = [
-    "WEIGHT_REPS",
-    "BODYWEIGHT_REPS",
-    "DURATION",
-    "DISTANCE",
-    "CARDIO",
+  "WEIGHT_REPS",
+  "BODYWEIGHT_REPS",
+  "DURATION",
+  "DISTANCE",
+  "CARDIO",
 ];
+
+
+const validMuscles = [
+  "CHEST",
+  "BACK",
+  "LATS",
+  "SHOULDERS",
+  "BICEPS",
+  "TRICEPS",
+  "FOREARMS",
+  "ABS",
+  "OBLIQUES",
+  "QUADRICEPS",
+  "HAMSTRINGS",
+  "GLUTES",
+  "CALVES",
+  "HIP_FLEXORS",
+  "ADDUCTORS",
+  "ABDUCTORS",
+  "LOWER_BACK",
+  "TRAPS",
+];
+
+const validExerciseTypes = [
+  "COMPOUND",
+  "ISOLATION",
+];
+
+const validMovementPatterns = [
+  "HORIZONTAL_PUSH",
+  "VERTICAL_PUSH",
+  "HORIZONTAL_PULL",
+  "VERTICAL_PULL",
+  "SQUAT",
+  "HINGE",
+  "LUNGE",
+  "CARRY",
+  "ROTATION",
+  "ANTI_ROTATION",
+  "FLEXION",
+  "EXTENSION",
+  "ABDUCTION",
+  "ADDUCTION",
+  "OTHER",
+];
+
+const isValidOptionalEnum = (value, allowedValues) => {
+  return value == null || allowedValues.includes(value);
+};
+
+const isValidStringArray = (value, allowedValues) => {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        typeof item === "string" &&
+        allowedValues.includes(item)
+    ) &&
+    new Set(value).size === value.length
+  );
+};
+
+const isValidUrl = (value) => {
+  if (value == null || value === "") return true;
+
+  if (typeof value !== "string") return false;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
 
 // GET /api/exercises — fetch the exercise catalog
 router.get("/", async (req, res) => {
-    console.log("GET /api/exercise reached");
-    try {
-        const exercises = await prisma.exercise.findMany({
-            orderBy: [{ category: "asc" }, { name: "asc" }],
-        });
+  console.log("GET /api/exercise reached");
+  try {
+    const exercises = await prisma.exercise.findMany({
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+    });
 
-        return res.json({ exercises });
-    } catch (error) {
-        console.error("Error fetching exercises:", error);
+    return res.json({ exercises });
+  } catch (error) {
+    console.error("Error fetching exercises:", error);
 
-        return res.status(500).json({
-            error: "Failed to fetch exercises.",
-        });
-    }
+    return res.status(500).json({
+      error: "Failed to fetch exercises.",
+    });
+  }
 });
 
 // POST /api/exercises — add a custom exercise
 router.post("/", async (req, res) => {
-    try {
-        const {
-            name,
-            category,
-            equipment,
-            measurementType,
-            description,
-        } = req.body;
+  try {
+    const {
+      name,
+      category,
+      equipment,
+      measurementType,
+      description,
+      primaryMuscle,
+      secondaryMuscles,
+      exerciseType,
+      movementPattern,
+      imageUrl,
+      imagePublicId,
+      videoUrl,
+    } = req.body;
 
-        // Validate exercise name
-        if (
-            typeof name !== "string" ||
-            !name.trim() ||
-            name.trim().length > 100
-        ) {
-            return res.status(400).json({
-                error: "Exercise name must be between 1 and 100 characters.",
-            });
-        }
-
-        // Validate category
-        if (!validCategories.includes(category)) {
-            return res.status(400).json({
-                error: "Invalid exercise category.",
-            });
-        }
-
-        // Validate how performance is measured
-        if (!validMeasurementTypes.includes(measurementType)) {
-            return res.status(400).json({
-                error: "Invalid exercise measurement type.",
-            });
-        }
-
-        // Validate optional fields
-        if (
-            equipment != null &&
-            (typeof equipment !== "string" || equipment.trim().length > 100)
-        ) {
-            return res.status(400).json({
-                error: "Equipment must be a string of at most 100 characters.",
-            });
-        }
-
-        if (
-            description != null &&
-            (typeof description !== "string" ||
-                description.trim().length > 500)
-        ) {
-            return res.status(400).json({
-                error: "Description must be a string of at most 500 characters.",
-            });
-        }
-
-        const exercise = await prisma.exercise.create({
-            data: {
-                name: name.trim(),
-                category,
-                equipment: equipment?.trim() || null,
-                measurementType,
-                description: description?.trim() || null,
-                isCustom: true,
-            },
-        });
-
-        return res.status(201).json({ exercise });
-    } catch (error) {
-        // Prisma P2002 means a unique constraint was violated.
-        if (error.code === "P2002") {
-            return res.status(409).json({
-                error: "An exercise with this name already exists.",
-            });
-        }
-
-        console.error("Error creating exercise:", error);
-
-        return res.status(500).json({
-            error: "Failed to create exercise.",
-        });
+    // Validate exercise name
+    if (
+      typeof name !== "string" ||
+      !name.trim() ||
+      name.trim().length > 100
+    ) {
+      return res.status(400).json({
+        error: "Exercise name must be between 1 and 100 characters.",
+      });
     }
+
+    // Validate category
+    if (!validCategories.includes(category)) {
+      return res.status(400).json({
+        error: "Invalid exercise category.",
+      });
+    }
+
+    // Validate how performance is measured
+    if (!validMeasurementTypes.includes(measurementType)) {
+      return res.status(400).json({
+        error: "Invalid exercise measurement type.",
+      });
+    }
+
+    // Validate optional fields
+    if (
+      equipment != null &&
+      (typeof equipment !== "string" || equipment.trim().length > 100)
+    ) {
+      return res.status(400).json({
+        error: "Equipment must be a string of at most 100 characters.",
+      });
+    }
+
+    if (
+      description != null &&
+      (typeof description !== "string" ||
+        description.trim().length > 500)
+    ) {
+      return res.status(400).json({
+        error: "Description must be a string of at most 500 characters.",
+      });
+    }
+    // Validate primary muscle
+    if (!isValidOptionalEnum(primaryMuscle, validMuscles)) {
+      return res.status(400).json({
+        error: "Invalid primary muscle.",
+      });
+    }
+
+    // Validate secondary muscles
+    if (
+      secondaryMuscles !== undefined &&
+      !isValidStringArray(secondaryMuscles, validMuscles)
+    ) {
+      return res.status(400).json({
+        error: "Secondary muscles must be an array of valid muscle groups without duplicates.",
+      });
+    }
+
+    // Validate exercise type
+    if (!isValidOptionalEnum(exerciseType, validExerciseTypes)) {
+      return res.status(400).json({
+        error: "Invalid exercise type.",
+      });
+    }
+
+    // Validate movement pattern
+    if (!isValidOptionalEnum(movementPattern, validMovementPatterns)) {
+      return res.status(400).json({
+        error: "Invalid movement pattern.",
+      });
+    }
+
+    // Validate image URL
+    if (!isValidUrl(imageUrl)) {
+      return res.status(400).json({
+        error: "Invalid image URL.",
+      });
+    }
+
+    // Validate video URL
+    if (!isValidUrl(videoUrl)) {
+      return res.status(400).json({
+        error: "Invalid video URL.",
+      });
+    }
+
+    const exercise = await prisma.exercise.create({
+      data: {
+        name: name.trim(),
+        category,
+        equipment: equipment?.trim() || null,
+        measurementType,
+        description: description?.trim() || null,
+
+        primaryMuscle: primaryMuscle || null,
+        secondaryMuscles: secondaryMuscles || [],
+        exerciseType: exerciseType || null,
+        movementPattern: movementPattern || null,
+        imageUrl: imageUrl?.trim() || null,
+        imagePublicId: imagePublicId?.trim() || null,
+        videoUrl: videoUrl?.trim() || null,
+
+        isCustom: true,
+      },
+    });
+
+    return res.status(201).json({ exercise });
+  } catch (error) {
+    // Prisma P2002 means a unique constraint was violated.
+    if (error.code === "P2002") {
+      return res.status(409).json({
+        error: "An exercise with this name already exists.",
+      });
+    }
+
+    console.error("Error creating exercise:", error);
+
+    return res.status(500).json({
+      error: "Failed to create exercise.",
+    });
+  }
 });
 
 
@@ -149,11 +283,25 @@ router.patch("/:id", async (req, res) => {
       equipment,
       measurementType,
       description,
+      primaryMuscle,
+      secondaryMuscles,
+      exerciseType,
+      movementPattern,
+      imageUrl,
+      imagePublicId,
+      videoUrl,
     } = req.body;
 
-    if (name !== undefined && !name.trim()) {
+    if (
+      name !== undefined &&
+      (
+        typeof name !== "string" ||
+        !name.trim() ||
+        name.trim().length > 100
+      )
+    ) {
       return res.status(400).json({
-        error: "Exercise name cannot be empty.",
+        error: "Exercise name must be between 1 and 100 characters.",
       });
     }
 
@@ -222,15 +370,75 @@ router.patch("/:id", async (req, res) => {
         });
       }
     }
+    // Validate primary muscle
+    if (!isValidOptionalEnum(primaryMuscle, validMuscles)) {
+      return res.status(400).json({
+        error: "Invalid primary muscle.",
+      });
+    }
+
+    // Validate secondary muscles
+    if (
+      secondaryMuscles !== undefined &&
+      !isValidStringArray(secondaryMuscles, validMuscles)
+    ) {
+      return res.status(400).json({
+        error: "Secondary muscles must be an array of valid muscle groups without duplicates.",
+      });
+    }
+
+    // Validate exercise type
+    if (!isValidOptionalEnum(exerciseType, validExerciseTypes)) {
+      return res.status(400).json({
+        error: "Invalid exercise type.",
+      });
+    }
+
+    // Validate movement pattern
+    if (!isValidOptionalEnum(movementPattern, validMovementPatterns)) {
+      return res.status(400).json({
+        error: "Invalid movement pattern.",
+      });
+    }
+
+    // Validate image URL
+    if (!isValidUrl(imageUrl)) {
+      return res.status(400).json({
+        error: "Invalid image URL.",
+      });
+    }
+
+    // Validate video URL
+    if (!isValidUrl(videoUrl)) {
+      return res.status(400).json({
+        error: "Invalid video URL.",
+      });
+    }
 
     const exercise = await prisma.exercise.update({
       where: { id },
       data: {
         ...(name !== undefined && { name: name.trim() }),
         ...(category !== undefined && { category }),
-        ...(equipment !== undefined && { equipment }),
+        ...(equipment !== undefined && {
+          equipment: equipment?.trim() || null,
+        }),
         ...(measurementType !== undefined && { measurementType }),
-        ...(description !== undefined && { description }),
+        ...(description !== undefined && {
+          description: description?.trim() || null,
+        }),
+
+        ...(primaryMuscle !== undefined && { primaryMuscle }),
+        ...(secondaryMuscles !== undefined && { secondaryMuscles }),
+        ...(exerciseType !== undefined && { exerciseType }),
+        ...(movementPattern !== undefined && { movementPattern }),
+        ...(imageUrl !== undefined && {
+          imageUrl: imageUrl?.trim() || null,
+        }),
+        ...(imagePublicId !== undefined && {
+          imagePublicId: imagePublicId?.trim() || null,
+        }),
+        ...(videoUrl !== undefined && { videoUrl: videoUrl?.trim() || null, }),
       },
     });
 

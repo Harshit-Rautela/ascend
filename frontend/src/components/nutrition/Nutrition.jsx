@@ -84,6 +84,7 @@ function Nutrition() {
     const [micronutrientsLoading, setMicronutrientsLoading] = useState(true);
     const [micronutrientsError, setMicronutrientsError] = useState("");
     const [activeMicronutrientFilter, setActiveMicronutrientFilter] = useState("All");
+    
 
 
     const nutritionTabs = [

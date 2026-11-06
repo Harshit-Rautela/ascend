@@ -30,13 +30,15 @@ import {
 import Nutrition from "./components/nutrition/Nutrition";
 import Workouts from "./components/workouts/Workouts";
 import Habits from "./components/habits/Habits";
- import Stats from "./components/stats/Stats";
- import Dashboard from "./components/dashboard/Dashboard";
+import Stats from "./components/stats/Stats";
+import Dashboard from "./components/dashboard/Dashboard";
+import Sleep from "./components/sleep/Sleep";
 
 const navigation = [
   { label: "Dashboard", icon: LayoutDashboard },
   { label: "Workouts", icon: Dumbbell },
   { label: "Nutrition", icon: Utensils },
+  { label: "Sleep", icon: Moon },
   { label: "Stats", icon: ChartNoAxesCombined },
   { label: "Habits", icon: Target },
 ];
@@ -357,18 +359,21 @@ function App() {
           activePage === "Workouts" ? (
             <Workouts />
           ) :
-            activePage === "Habits" ? (
-              <Habits />
-            ) : activePage === "Stats" ? (
-              <Stats />
-            ) : activePage === "Dashboard" ? (
-              <Dashboard/>
-            ) : (
-              <section className="panel">
-                <h2>{activePage}</h2>
-                <p>This section is coming soon.</p>
-              </section>
-            )}
+            activePage === "Sleep" ? (
+              <Sleep />
+            ) :
+              activePage === "Habits" ? (
+                <Habits />
+              ) : activePage === "Stats" ? (
+                <Stats />
+              ) : activePage === "Dashboard" ? (
+                <Dashboard />
+              ) : (
+                <section className="panel">
+                  <h2>{activePage}</h2>
+                  <p>This section is coming soon.</p>
+                </section>
+              )}
 
 
         <footer className="dashboard-footer">

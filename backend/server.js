@@ -11,7 +11,10 @@ import habitsRouter from "./routes/habits.js";
 import statsRouter from "./routes/stats.js";
 import quoteRoutes from "./routes/quotes.js";
 import waterRoutes from "./routes/waterIntake.js";
+import stepRoutes from "./routes/steps.js";
 import { connectRedis } from "./redis.js";
+import mediaRoutes from "./routes/mediaRoutes.js";
+import sleepRouter from "./routes/sleep.js";
 
 
 
@@ -31,6 +34,9 @@ app.use("/api/habits", habitsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/quotes", quoteRoutes);
 app.use("/api/water", waterRoutes);
+app.use("/api/media", mediaRoutes);
+app.use("/api/steps", stepRoutes);
+app.use("/api/sleep", sleepRouter);
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({
