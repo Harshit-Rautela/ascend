@@ -14,12 +14,38 @@ import {
   Flame,
   Check,
   Circle,
+  BookOpen,
+  Dumbbell,
+  Brain,
+  Sun,
+  Code,
+  GraduationCap,
+  Droplets,
+  Heart,
+  Apple,
+  Bike,
+  Moon,
 } from "lucide-react";
 import "./Habits.css";
 import HabitHistory from "./HabitHistory.jsx"
 import HabitConsistency from "./HabitConsistency.jsx";
 
 const API_URL = "http://localhost:5000/api/habits";
+
+const HABIT_ICONS = [
+  { name: "target", label: "Goals", component: Target },
+  { name: "book-open", label: "Reading", component: BookOpen },
+  { name: "dumbbell", label: "Fitness", component: Dumbbell },
+  { name: "brain", label: "Learning", component: Brain },
+  { name: "sun", label: "Morning", component: Sun },
+  { name: "code", label: "Coding", component: Code },
+  { name: "graduation-cap", label: "Study", component: GraduationCap },
+  { name: "droplets", label: "Water", component: Droplets },
+  { name: "heart", label: "Health", component: Heart },
+  { name: "apple", label: "Nutrition", component: Apple },
+  { name: "bike", label: "Cycling", component: Bike },
+  { name: "moon", label: "Sleep", component: Moon },
+];
 
 function getLocalDateString(date = new Date()) {
   const year = date.getFullYear();
@@ -39,6 +65,7 @@ function Habits() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [activeTab, setActiveTab] = useState("Overview");
+  const [selectedIcon, setSelectedIcon] = useState("target");
   const [today] = useState(() => getLocalDateString());
 
   const habitTabs = [
@@ -89,6 +116,8 @@ function Habits() {
     setEditingHabit(null);
     setTitle("");
     setDescription("");
+    setSelectedIcon("target");
+
     setError("");
     setFormOpen(true);
   }
@@ -97,6 +126,7 @@ function Habits() {
     setEditingHabit(habit);
     setTitle(habit.title);
     setDescription(habit.description || "");
+    setSelectedIcon(habit.icon || "target");
     setError("");
     setFormOpen(true);
   }
@@ -106,6 +136,7 @@ function Habits() {
     setEditingHabit(null);
     setTitle("");
     setDescription("");
+    setSelectedIcon("target");
   }
 
   async function handleSubmit(event) {
@@ -130,6 +161,8 @@ function Habits() {
           body: JSON.stringify({
             title: title.trim(),
             description: description.trim() || null,
+            icon: selectedIcon,
+
           }),
         }
       );
@@ -185,16 +218,15 @@ function Habits() {
 
     try {
       const response = await fetch(
-        `${API_URL}/${habit.id}/completions${
-          habit.completed ? `?date=${encodeURIComponent(today)}` : ""
+        `${API_URL}/${habit.id}/completions${habit.completed ? `?date=${encodeURIComponent(today)}` : ""
         }`,
         habit.completed
           ? { method: "DELETE" }
           : {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ date: today }),
-            }
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: today }),
+          }
       );
 
       const result = await response.json();
@@ -257,23 +289,25 @@ function Habits() {
 
     return (
       <div className="habits-grid">
+
         {habits.map((habit) => {
           const updating = completionUpdatingId === habit.id;
+          const selectedHabitIcon =
+            HABIT_ICONS.find((item) => item.name === habit.icon) ||
+            HABIT_ICONS[0];
+
+          const HabitIcon = selectedHabitIcon.component;
 
           return (
             <article
-              className={`habit-card ${
-                habit.completed ? "habit-card-completed" : ""
-              }`}
+              className={`habit-card ${habit.completed ? "habit-card-completed" : ""
+                }`}
               key={habit.id}
             >
+              {/* Card header */}
               <div className="habit-card-top">
                 <div className="habit-card-icon">
-                  {habit.completed ? (
-                    <Check size={21} />
-                  ) : (
-                    <Target size={21} />
-                  )}
+                  <HabitIcon size={21} />
                 </div>
 
                 <div className="habit-card-actions">
@@ -298,48 +332,57 @@ function Habits() {
                 </div>
               </div>
 
-              <h3>{habit.title}</h3>
+              {/* Habit information */}
+              <div className="habit-card-content">
+                <h3>{habit.title}</h3>
 
-              <p className="habit-card-description">
-                {habit.description || "No description added yet."}
-              </p>
-
-              <div className="habit-card-footer">
-                <span className="habit-active-dot" />
-                {habit.completed
-                  ? "Completed today"
-                  : "Not completed yet"}
+                <p className="habit-card-description">
+                  {habit.description || "No description added yet."}
+                </p>
               </div>
 
-              <button
-                type="button"
-                className={`habit-completion-button ${
-                  habit.completed ? "completed" : ""
-                }`}
-                onClick={() => handleToggleCompletion(habit)}
-                disabled={Boolean(completionUpdatingId)}
-                aria-pressed={habit.completed}
-              >
-                {updating ? (
-                  <LoaderCircle
-                    className="habits-spinner"
-                    size={17}
-                  />
-                ) : habit.completed ? (
-                  <Check size={17} />
-                ) : (
-                  <Circle size={17} />
-                )}
+              {/* Completion section */}
+              <div className="habit-card-bottom">
 
-                {updating
-                  ? "Saving..."
-                  : habit.completed
-                  ? "Undo completion"
-                  : "Mark complete"}
-              </button>
+                <div
+                  className={`habit-card-status ${habit.completed ? "is-completed" : "is-pending"
+                    }`}
+                >
+                  <span className="habit-card-status-dot" />
+
+                  <span>
+                    {habit.completed ? "Completed today" : "Not completed yet"}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  className={`habit-completion-button ${habit.completed ? "completed" : ""
+                    }`}
+                  onClick={() => handleToggleCompletion(habit)}
+                  disabled={Boolean(completionUpdatingId)}
+                  aria-pressed={habit.completed}
+                >
+                  {updating ? (
+                    <LoaderCircle className="habits-spinner" size={17} />
+                  ) : habit.completed ? (
+                    <Check size={17} />
+                  ) : (
+                    <Circle size={17} />
+                  )}
+
+                  {updating
+                    ? "Saving..."
+                    : habit.completed
+                      ? "Undo completion"
+                      : "Mark complete"}
+                </button>
+
+              </div>
             </article>
           );
         })}
+
       </div>
     );
   }
@@ -375,9 +418,8 @@ function Habits() {
           <button
             key={label}
             type="button"
-            className={`habits-tab ${
-              activeTab === label ? "active" : ""
-            }`}
+            className={`habits-tab ${activeTab === label ? "active" : ""
+              }`}
             onClick={() => setActiveTab(label)}
             aria-current={activeTab === label ? "page" : undefined}
           >
@@ -389,56 +431,102 @@ function Habits() {
 
       {activeTab === "Overview" && (
         <>
-          <div className="habits-summary">
-            <div className="habits-summary-icon">
-              <Target size={22} />
+
+          <div className="habits-overview-dashboard">
+
+            {/* Daily circular progress */}
+            <div className="habits-daily-progress">
+
+              <div className="habits-progress-ring-wrapper">
+                <div
+                  className="habits-progress-ring"
+                  style={{
+                    "--progress": `${completionPercent}%`,
+                  }}
+                  role="progressbar"
+                  aria-label="Today's habit completion"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={completionPercent}
+                >
+                  <div className="habits-progress-ring-inner">
+                    <strong>{completionPercent}%</strong>
+                    <span>Completed</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="habits-daily-progress-content">
+                <span className="habits-dashboard-eyebrow">
+                  DAILY OVERVIEW
+                </span>
+
+                <h3>Today's progress</h3>
+
+                <p>
+                  {completedCount} of {habits.length} habits completed
+                </p>
+
+                <span className="habits-progress-message">
+                  {habits.length === 0
+                    ? "Add your first habit to get started."
+                    : completionPercent === 100
+                      ? "Amazing! You've completed all your habits."
+                      : completionPercent >= 70
+                        ? "Great progress. You're almost there!"
+                        : completionPercent >= 40
+                          ? "Keep going. Every small action counts."
+                          : "A fresh day is another opportunity to improve."}
+                </span>
+              </div>
+
+              <button
+                className="habits-refresh-button"
+                type="button"
+                onClick={fetchHabits}
+                disabled={loading}
+                aria-label="Refresh habits"
+                title="Refresh habits"
+              >
+                <RefreshCw size={17} />
+              </button>
+
             </div>
 
-            <div className="habits-summary-copy">
-              <span>Today's progress</span>
-              <strong>
-                {completedCount} of {habits.length} completed
-              </strong>
+            {/* Daily statistics */}
+            <div className="habits-overview-stats">
+
+              <div className="habits-stat-card">
+                <span>Total habits</span>
+                <strong>{habits.length}</strong>
+                <Target size={19} />
+              </div>
+
+              <div className="habits-stat-card">
+                <span>Completed</span>
+                <strong>{completedCount}</strong>
+                <Check size={19} />
+              </div>
+
+              <div className="habits-stat-card">
+                <span>Remaining</span>
+                <strong>{habits.length - completedCount}</strong>
+                <Circle size={19} />
+              </div>
+
             </div>
 
-            <span className="habits-progress-percent">
-              {completionPercent}%
-            </span>
-
-            <button
-              className="habits-refresh-button"
-              type="button"
-              onClick={fetchHabits}
-              disabled={loading}
-              aria-label="Refresh habits"
-              title="Refresh habits"
-            >
-              <RefreshCw size={17} />
-            </button>
-
-            <div
-              className="habits-progress-track"
-              role="progressbar"
-              aria-label="Today's habit completion"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={completionPercent}
-            >
-              <div
-                className="habits-progress-fill"
-                style={{ width: `${completionPercent}%` }}
-              />
-            </div>
           </div>
+
 
           {renderOverview()}
         </>
       )}
 
-      {activeTab === "History" && <HabitHistory/>
+      {activeTab === "History" && <HabitHistory />
       }
 
-      {activeTab === "Consistency" && <HabitConsistency/>}
+      {activeTab === "Consistency" && <HabitConsistency />}
 
       {activeTab === "Streaks" && (
         <section className="habits-placeholder">
@@ -528,6 +616,36 @@ function Habits() {
                 rows={3}
                 maxLength={500}
               />
+              <div className="habit-icon-picker">
+                <div className="habit-icon-picker-heading">
+                  <label>Choose an icon</label>
+                  <span>Select an icon that represents your habit.</span>
+                </div>
+
+                <div className="habit-icon-options">
+                  {HABIT_ICONS.map((iconItem) => {
+                    const IconComponent = iconItem.component;
+                    const isSelected = selectedIcon === iconItem.name;
+
+                    return (
+                      <button
+                        key={iconItem.name}
+                        type="button"
+                        className={`habit-icon-option ${isSelected ? "selected" : ""
+                          }`}
+                        onClick={() => setSelectedIcon(iconItem.name)}
+                        disabled={saving}
+                        aria-label={`Select ${iconItem.label} icon`}
+                        aria-pressed={isSelected}
+                        title={iconItem.label}
+                      >
+                        <IconComponent size={21} />
+                        <span>{iconItem.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               <div className="habits-modal-actions">
                 <button
@@ -547,8 +665,8 @@ function Habits() {
                   {saving
                     ? "Saving..."
                     : editingHabit
-                    ? "Save changes"
-                    : "Create habit"}
+                      ? "Save changes"
+                      : "Create habit"}
                 </button>
               </div>
             </form>

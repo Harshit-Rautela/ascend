@@ -1,578 +1,438 @@
 
-import { useEffect, useState, useMemo } from "react";
+/**
+ * ASCEND — NUTRITION AI CHAT
+ *
+ * Conversational nutrition assistant powered by Gemini.
+ * Retrieves personal nutrition insights through the backend.
+ */
+
+import { useEffect, useRef, useState } from "react";
+
 import {
-  Activity,
-  Flame,
-  Beef,
-  TrendingUp,
-  ChevronLeft,
-  ChevronRight,
-  RefreshCw,
+    Activity,
+    Bot,
+    Sparkles,
+    Send,
+    Trash2,
+    User,
+    LoaderCircle,
+    Utensils,
+    Flame,
+    Beef,
+    ChartNoAxesCombined,
+    ShieldCheck,
 } from "lucide-react";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 import "./nutrition.css";
 
-const MACRO_COLORS = ["#c6f36a", "#7c9cff", "#f5a66b"];
+const API_URL = "http://localhost:5000/api/nutrition/insights";
 
-function getMonday(date) {
-  const result = new Date(date);
-  result.setHours(12, 0, 0, 0);
+const suggestions = [
+    {
+        icon: Flame,
+        label: "Analyze my nutrition",
+        message: "Analyze my nutrition over the last 30 days. What patterns do you notice?",
+    },
+    {
+        icon: Beef,
+        label: "Review my protein intake",
+        message: "Analyze my protein intake over the last 30 days.",
+    },
+    {
+        icon: ChartNoAxesCombined,
+        label: "Macro breakdown",
+        message: "Give me a detailed breakdown of my calories, protein, carbs, and fat.",
+    },
+    {
+        icon: Utensils,
+        label: "Analyze my meals",
+        message: "Analyze my meal patterns. Which meals contribute the most to my daily nutrition?",
+    },
+];
 
-  const day = result.getDay();
-  result.setDate(result.getDate() - (day === 0 ? 6 : day - 1));
-
-  return result;
+function getTime() {
+    return new Intl.DateTimeFormat("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata",
+    }).format(new Date());
 }
-
-function formatDate(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function getLocalToday() {
-  return formatDate(new Date());
-}
-
-function formatShortDate(dateString) {
-  return new Date(`${dateString}T12:00:00`).toLocaleDateString(
-    "en-IN",
-    { weekday: "short", day: "numeric" }
-  );
-}
-
-function formatWeekRange(startDate) {
-  const endDate = new Date(`${startDate}T12:00:00`);
-  endDate.setDate(endDate.getDate() + 6);
-
-  return `${new Date(`${startDate}T12:00:00`).toLocaleDateString(
-    "en-IN",
-    { day: "numeric", month: "short" }
-  )} – ${endDate.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  })}`;
-}
-
-const number = (value) => Math.round(Number(value) || 0);
 
 export default function NutritionInsights() {
-  const [weekStart, setWeekStart] = useState(() =>
-    getMonday(new Date())
-  );
-  const [period, setPeriod] = useState("weekly");
-  const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [days, setDays] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+    const [messages, setMessages] = useState([
+        {
+            id: 1,
+            role: "assistant",
+            content:
+                "Hey! I'm your **Ascend Nutrition Assistant**. I can help you understand your eating patterns, analyze your macros, explore micronutrients, and identify trends in your nutrition records.\n\nWhat would you like to explore?",
+            time: getTime(),
+            sources: [],
+        },
+    ]);
 
-  const startDate = formatDate(weekStart);
+    const [input, setInput] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
+    const messagesEndRef = useRef(null);
+    const inputRef = useRef(null);
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function fetchNutrition() {
-      setLoading(true);
-      setError("");
-
-      try {
-        const url =
-          period === "weekly"
-            ? `http://localhost:5000/api/nutrition/weekly?startDate=${formatDate(
-              getMonday(selectedDate)
-            )}`
-            : `http://localhost:5000/api/nutrition/monthly?month=${selectedDate.getFullYear()}-${String(
-              selectedDate.getMonth() + 1
-            ).padStart(2, "0")}`;
-
-        const response = await fetch(url, {
-          signal: controller.signal,
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({
+            behavior: "smooth",
         });
+    }, [messages, loading]);
 
-        if (!response.ok) {
-          throw new Error("Unable to load nutrition insights.");
+    async function sendMessage(message = input) {
+        const trimmedMessage = message.trim();
+
+        if (!trimmedMessage || loading) return;
+
+        if (trimmedMessage.length > 1000) {
+            setError("Your message cannot exceed 1000 characters.");
+            return;
         }
 
-        const result = await response.json();
+        const userMessage = {
+            id: Date.now(),
+            role: "user",
+            content: trimmedMessage,
+            time: getTime(),
+        };
 
-        setDays(Array.isArray(result.days) ? result.days : []);
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          setError(err.message || "Something went wrong.");
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    }
+        setMessages((previous) => [...previous, userMessage]);
+        setInput("");
+        setError("");
+        setLoading(true);
 
-    fetchNutrition();
+        try {
+            const response = await fetch(`${API_URL}/chat`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    message: trimmedMessage,
+                }),
+            });
 
-    return () => controller.abort();
-  }, [period, selectedDate]);
+            const result = await response.json();
 
-
-
-  // Today's date in the user's local timezone (IST).
-  const today = getLocalToday();
-
-  // Only days with at least one entry, and never future dates.
-  const loggedDays = days.filter(
-    (day) =>
-      day.date <= today &&
-      Number(day.entries || 0) > 0
-  );
-
-  // Calculate totals only from eligible logged days.
-  const totals = loggedDays.reduce(
-    (acc, day) => ({
-      calories: acc.calories + Number(day.calories || 0),
-      protein: acc.protein + Number(day.protein || 0),
-      carbs: acc.carbs + Number(day.carbs || 0),
-      fat: acc.fat + Number(day.fat || 0),
-      entries: acc.entries + Number(day.entries || 0),
-    }),
-    {
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      entries: 0,
-    }
-  );
-
-  const daysWithEntries = loggedDays.length;
-
-  // Return null when there are no logged days.
-  const average = (value) =>
-    daysWithEntries > 0
-      ? Math.round(value / daysWithEntries)
-      : null;
-
-  const macroData = [
-    { name: "Protein", value: Math.round(totals.protein) },
-    { name: "Carbs", value: Math.round(totals.carbs) },
-    { name: "Fat", value: Math.round(totals.fat) },
-  ].filter((item) => item.value > 0);
-
-  const highestCalorieDay = loggedDays.reduce(
-    (best, day) =>
-      !best || Number(day.calories || 0) > Number(best.calories || 0)
-        ? day
-        : best,
-    null
-  );
-  const previousWeek = () => {
-    setWeekStart((current) => {
-      const next = new Date(current);
-      next.setDate(next.getDate() - 7);
-      return next;
-    });
-  };
-
-  const nextWeek = () => {
-    const currentMonday = getMonday(new Date());
-
-    setWeekStart((current) => {
-      if (current >= currentMonday) return current;
-
-      const next = new Date(current);
-      next.setDate(next.getDate() + 7);
-      return next;
-    });
-  };
-
-  const isCurrentWeek = weekStart >= getMonday(new Date());
-
-  return (
-    <main className="nutrition-insights">
-      <header className="ni-header">
-        <div>
-          <p className="ni-eyebrow">YOUR NUTRITION</p>
-          <h1>Nutrition Insights</h1>
-          <p className="ni-subtitle">
-            Understand your eating patterns and track your progress.
-          </p>
-        </div>
-
-        <div className="ni-header-icon">
-          <Activity size={25} />
-        </div>
-      </header>
-
-      <section className="ni-period-controls">
-        <div className="ni-period-switch">
-          <button
-            type="button"
-            className={period === "weekly" ? "active" : ""}
-            onClick={() => {
-              setPeriod("weekly");
-              setSelectedDate(new Date());
-            }}
-          >
-            Weekly
-          </button>
-
-          <button
-            type="button"
-            className={period === "monthly" ? "active" : ""}
-            onClick={() => {
-              setPeriod("monthly");
-              setSelectedDate(new Date());
-            }}
-          >
-            Monthly
-          </button>
-        </div>
-
-        <div className="ni-period-navigation">
-          <button
-            type="button"
-            className="ni-icon-button"
-            aria-label="Previous period"
-            onClick={() => {
-              setSelectedDate((current) => {
-                const next = new Date(current);
-
-                if (period === "weekly") {
-                  next.setDate(next.getDate() - 7);
-                } else {
-                  next.setMonth(next.getMonth() - 1);
-                }
-
-                return next;
-              });
-            }}
-          >
-            <ChevronLeft size={20} />
-          </button>
-
-          <div className="ni-week-label">
-            <span>
-              {period === "weekly" ? "WEEKLY OVERVIEW" : "MONTHLY OVERVIEW"}
-            </span>
-
-            <strong>
-              {period === "weekly"
-                ? formatWeekRange(formatDate(getMonday(selectedDate)))
-                : selectedDate.toLocaleDateString("en-IN", {
-                  month: "long",
-                  year: "numeric",
-                })}
-            </strong>
-          </div>
-
-          <button
-            type="button"
-            className="ni-icon-button"
-            aria-label="Next period"
-            disabled={
-              period === "weekly"
-                ? getMonday(selectedDate) >= getMonday(new Date())
-                : selectedDate.getFullYear() === new Date().getFullYear() &&
-                selectedDate.getMonth() === new Date().getMonth()
+            if (!response.ok || !result.success) {
+                throw new Error(
+                    result.error || "Unable to process your question."
+                );
             }
-            onClick={() => {
-              setSelectedDate((current) => {
-                const next = new Date(current);
 
-                if (period === "weekly") {
-                  next.setDate(next.getDate() + 7);
-                } else {
-                  next.setMonth(next.getMonth() + 1);
-                }
+            const aiResult = result.data;
 
-                return next;
-              });
-            }}
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-      </section>
+            if (!aiResult || typeof aiResult.answer !== "string") {
+                throw new Error("The assistant returned an invalid response.");
+            }
 
-      {error && (
-        <div className="ni-error">
-          <p>{error}</p>
-          <button
-            type="button"
-            onClick={() => setSelectedDate(current => new Date(current))}
-          >
-            <RefreshCw size={15} /> Retry
-          </button>
-        </div>
-      )}
+            setMessages((previous) => [
+                ...previous,
+                {
+                    id: Date.now() + 1,
+                    role: "assistant",
+                    content: aiResult.answer,
+                    time: getTime(),
+                    sources: aiResult.sources || [],
+                    incomplete: Boolean(aiResult.incomplete),
+                },
+            ]);
+        } catch (err) {
+            setError(
+                err.message || "Something went wrong. Please try again."
+            );
+        } finally {
+            setLoading(false);
+            inputRef.current?.focus();
+        }
+    }
 
-      {loading ? (
-        <div className="ni-state">Loading your nutrition data...</div>
-      ) : !error ? (
-        <>
-          <section className="ni-stats-grid">
-            <article className="ni-stat-card">
-              <div className="ni-stat-icon ni-lime">
-                <Flame size={20} />
-              </div>
-              <p>Average daily calories</p>
-              <h2>
-                {average(totals.calories) === null
-                  ? "--"
-                  : average(totals.calories).toLocaleString("en-IN")}
-              </h2>
-              <span>kcal · Avg over {daysWithEntries} logged days</span>
-            </article>
+    function handleSubmit(event) {
+        event.preventDefault();
+        sendMessage();
+    }
 
-            <article className="ni-stat-card">
-              <div className="ni-stat-icon ni-blue">
-                <Beef size={20} />
-              </div>
-              <p>Average daily protein</p>
-              <h2>
-                {average(totals.protein) === null
-                  ? "--"
-                  : average(totals.protein)}
-                {average(totals.protein) !== null && <small> g</small>}
-              </h2>
-              <span>Avg over {daysWithEntries} logged days</span>
-            </article>
+    function clearChat() {
+        if (loading) return;
 
-            <article className="ni-stat-card">
-              <div className="ni-stat-icon ni-orange">
-                <TrendingUp size={20} />
-              </div>
-              <p>Days logged</p>
-              <h2>{daysWithEntries}<small> / 7</small></h2>
-              <span>{totals.entries} food entries recorded</span>
-            </article>
-          </section>
+        setMessages([
+            {
+                id: Date.now(),
+                role: "assistant",
+                content:
+                    "Chat cleared! What would you like to understand about your nutrition?",
+                time: getTime(),
+                sources: [],
+            },
+        ]);
 
-          <section className="ni-chart-grid">
-            <article className="ni-panel ni-calorie-panel">
-              <div className="ni-panel-heading">
-                <div>
-                  <h2>Calorie trend</h2>
-                  <p>Your daily calorie intake</p>
-                </div>
-                <Flame size={20} />
-              </div>
+        setError("");
+    }
 
-              {days.length > 0 ? (
-                <div className="ni-chart">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={days.map((day) => ({
-                        ...day,
-                        label: formatShortDate(day.date),
-                      }))}
-                      margin={{ top: 12, right: 4, left: -12, bottom: 0 }}
-                    >
-                      <CartesianGrid
-                        stroke="#30352e"
-                        strokeDasharray="3 3"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="label"
-                        tick={{ fill: "#9b9f96", fontSize: 11 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        tick={{ fill: "#9b9f96", fontSize: 11 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <Tooltip
-                        cursor={{ fill: "#ffffff08" }}
-                        contentStyle={{
-                          background: "#20231e",
-                          border: "1px solid #3a4033",
-                          borderRadius: 10,
-                          color: "#f4f5ef",
-                        }}
-                        formatter={(value) => [
-                          `${number(value).toLocaleString("en-IN")} kcal`,
-                          "Calories",
-                        ]}
-                      />
-                      <Bar
-                        dataKey="calories"
-                        fill="#c6f36a"
-                        radius={[5, 5, 0, 0]}
-                        maxBarSize={38}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="ni-empty">No daily data available yet.</div>
-              )}
-            </article>
+    const hasUserMessages = messages.some(
+        (message) => message.role === "user"
+    );
 
-            <article className="ni-panel">
-              <div className="ni-panel-heading">
-                <div>
-                  <h2>Macro breakdown</h2>
-                  <p>Total grams for this week</p>
-                </div>
-                <Beef size={20} />
-              </div>
+    return (
+        <main className="nutrition-ai-page">
 
-              {macroData.length > 0 ? (
-                <>
-                  <div className="ni-donut">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={macroData}
-                          dataKey="value"
-                          nameKey="name"
-                          innerRadius="62%"
-                          outerRadius="84%"
-                          paddingAngle={4}
-                          stroke="none"
-                        >
-                          {macroData.map((entry) => (
-                            <Cell
-                              key={entry.name}
-                              fill={
-                                MACRO_COLORS[
-                                ["Protein", "Carbs", "Fat"].indexOf(entry.name)
-                                ]
-                              }
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            background: "#20231e",
-                            border: "1px solid #3a4033",
-                            borderRadius: 10,
-                            color: "#f4f5ef",
-                          }}
-                          formatter={(value) => [`${number(value)} g`]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="ni-donut-center">
-                      <strong>
-                        {number(
-                          totals.protein + totals.carbs + totals.fat
-                        )}
-                      </strong>
-                      <span>total grams</span>
+            {/* Header */}
+
+            <header className="nutrition-ai-header">
+                <div className="nutrition-ai-heading">
+                    <div className="nutrition-ai-icon">
+                        <Sparkles size={23} />
                     </div>
-                  </div>
 
-                  <div className="ni-macro-legend">
-                    {macroData.map((macro) => (
-                      <div key={macro.name}>
-                        <span>
-                          <i
-                            style={{
-                              background:
-                                MACRO_COLORS[
-                                ["Protein", "Carbs", "Fat"].indexOf(macro.name)
-                                ],
-                            }}
-                          />
-                          {macro.name}
-                        </span>
-                        <strong>{number(macro.value)} g</strong>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="ni-empty">Log food to see your macros.</div>
-              )}
-            </article>
-          </section>
+                    <div>
+                        <p className="nutrition-ai-eyebrow">
+                            ASCEND INTELLIGENCE
+                        </p>
 
-          <section className="ni-panel ni-breakdown-panel">
-            <div className="ni-panel-heading">
-              <div>
-                <h2>Daily breakdown</h2>
-                <p>Compare your nutrition across the week.</p>
-              </div>
-            </div>
+                        <h1>Nutrition AI</h1>
 
-            {days.length > 0 ? (
-              <div className="ni-table-scroll">
-                <table className="ni-table">
-                  <thead>
-                    <tr>
-                      <th>Day</th>
-                      <th>Calories</th>
-                      <th>Protein</th>
-                      <th>Carbs</th>
-                      <th>Fat</th>
-                      <th>Entries</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {days.map((day) => (
-                      <tr key={day.date}>
-                        <td>{formatShortDate(day.date)}</td>
-                        <td>{number(day.calories).toLocaleString("en-IN")} kcal</td>
-                        <td>{number(day.protein)} g</td>
-                        <td>{number(day.carbs)} g</td>
-                        <td>{number(day.fat)} g</td>
-                        <td>{number(day.entries)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="ni-empty">No nutrition records for this week.</div>
-            )}
-          </section>
+                        <p>
+                            Understand your nutrition. Make informed decisions.
+                        </p>
+                    </div>
+                </div>
 
-          <section className="ni-highlight">
-            <div className="ni-highlight-icon">
-              <TrendingUp size={21} />
-            </div>
-            <div>
-              <span>WEEKLY HIGHLIGHT</span>
-              {totals.entries === 0 ? (
-                <p>
-                  Start logging your meals to discover patterns in your
-                  calorie and macro intake.
-                </p>
-              ) : (
-                <p>
-                  You logged food on {daysWithEntries} of 7 days and recorded{" "}
-                  {number(totals.calories).toLocaleString("en-IN")} kcal in
-                  total.
-                  {highestCalorieDay &&
-                    Number(highestCalorieDay.calories) > 0 && (
-                      <>
-                        {" "}Your highest-calorie day was{" "}
-                        {formatShortDate(highestCalorieDay.date)}.
-                      </>
+                <button
+                    type="button"
+                    className="nutrition-ai-clear-button"
+                    onClick={clearChat}
+                    disabled={loading || !hasUserMessages}
+                >
+                    <Trash2 size={15} />
+                    Clear chat
+                </button>
+            </header>
+
+            {/* Chat container */}
+
+            <section className="nutrition-ai-chat-container">
+
+                {/* Status bar */}
+
+                <div className="nutrition-ai-status">
+                    <span className="nutrition-ai-status-indicator" />
+
+                    <span>Nutrition Assistant online</span>
+
+                    <span className="nutrition-ai-status-divider">·</span>
+
+                    <span>Powered by Gemini</span>
+                </div>
+
+                {/* Messages */}
+
+                <div
+                    className="nutrition-ai-messages"
+                    aria-live="polite"
+                    aria-label="Nutrition AI conversation"
+                >
+                    {messages.map((message) => {
+                        const isAssistant = message.role === "assistant";
+
+                        return (
+                            <article
+                                key={message.id}
+                                className={`nutrition-ai-message ${
+                                    isAssistant
+                                        ? "assistant-message"
+                                        : "user-message"
+                                }`}
+                            >
+                                <div className="nutrition-ai-message-avatar">
+                                    {isAssistant ? (
+                                        <Bot size={18} />
+                                    ) : (
+                                        <User size={18} />
+                                    )}
+                                </div>
+
+                                <div className="nutrition-ai-message-content">
+                                    <div className="nutrition-ai-message-meta">
+                                        <span className="nutrition-ai-message-author">
+                                            {isAssistant ? "Nutrition AI" : "You"}
+                                        </span>
+
+                                        <span className="nutrition-ai-message-time">
+                                            {message.time}
+                                        </span>
+                                    </div>
+
+                                    <div className="nutrition-ai-message-bubble">
+                                        {isAssistant ? (
+                                            <div className="nutrition-ai-markdown">
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm]}
+                                                >
+                                                    {message.content}
+                                                </ReactMarkdown>
+                                            </div>
+                                        ) : (
+                                            <p>{message.content}</p>
+                                        )}
+
+                                        {message.incomplete && (
+                                            <p className="nutrition-ai-incomplete">
+                                                <Activity size={13} />
+                                                Incomplete analysis
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {isAssistant &&
+                                        message.sources?.length > 0 && (
+                                            <div className="nutrition-ai-sources">
+                                                <ShieldCheck size={13} />
+
+                                                <span>Data retrieved from:</span>
+
+                                                {message.sources.map((source) => (
+                                                    <span
+                                                        className="nutrition-ai-source"
+                                                        key={source}
+                                                    >
+                                                        {source
+                                                            .replaceAll("_", " ")
+                                                            .replace(/\b\w/g, (c) =>
+                                                                c.toUpperCase()
+                                                            )}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                </div>
+                            </article>
+                        );
+                    })}
+
+                    {/* Typing indicator */}
+
+                    {loading && (
+                        <div className="nutrition-ai-message assistant-message">
+                            <div className="nutrition-ai-message-avatar">
+                                <Bot size={18} />
+                            </div>
+
+                            <div className="nutrition-ai-message-content">
+                                <span className="nutrition-ai-message-author">
+                                    Nutrition AI
+                                </span>
+
+                                <div className="nutrition-ai-typing">
+                                    <span />
+                                    <span />
+                                    <span />
+                                </div>
+                            </div>
+                        </div>
                     )}
-                </p>
-              )}
-            </div>
-          </section>
-        </>
-      ) : null}
-    </main>
-  );
+
+                    <div ref={messagesEndRef} />
+                </div>
+
+                {/* Suggestions */}
+
+                {!hasUserMessages && (
+                    <div className="nutrition-ai-suggestions">
+                        <p className="nutrition-ai-suggestions-label">
+                            EXPLORE YOUR NUTRITION
+                        </p>
+
+                        <div className="nutrition-ai-suggestion-grid">
+                            {suggestions.map((suggestion) => {
+                                const Icon = suggestion.icon;
+
+                                return (
+                                    <button
+                                        key={suggestion.label}
+                                        type="button"
+                                        className="nutrition-ai-suggestion"
+                                        onClick={() =>
+                                            sendMessage(suggestion.message)
+                                        }
+                                        disabled={loading}
+                                    >
+                                        <Icon size={16} />
+
+                                        <span>{suggestion.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Input area */}
+
+                <div className="nutrition-ai-input-area">
+                    {error && (
+                        <p className="nutrition-ai-error" role="alert">
+                            {error}
+                        </p>
+                    )}
+
+                    <form
+                        className="nutrition-ai-input-wrapper"
+                        onSubmit={handleSubmit}
+                    >
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={input}
+                            onChange={(event) => {
+                                setInput(event.target.value);
+
+                                if (error) setError("");
+                            }}
+                            placeholder="Ask anything about your nutrition..."
+                            maxLength={1000}
+                            disabled={loading}
+                            aria-label="Ask Nutrition AI"
+                        />
+
+                        <button
+                            type="submit"
+                            className="nutrition-ai-send-button"
+                            disabled={!input.trim() || loading}
+                            aria-label="Send message"
+                        >
+                            {loading ? (
+                                <LoaderCircle
+                                    size={19}
+                                    className="nutrition-ai-spinner"
+                                />
+                            ) : (
+                                <Send size={18} />
+                            )}
+                        </button>
+                    </form>
+
+                    <div className="nutrition-ai-input-footer">
+                        <span>
+                            <ShieldCheck size={12} />
+                            Responses grounded in your recorded nutrition data
+                        </span>
+
+                        <span>{input.length}/1000</span>
+                    </div>
+                </div>
+            </section>
+
+            <p className="nutrition-ai-disclaimer">
+                Nutrition AI provides informational insights, not medical advice.
+            </p>
+        </main>
+    );
 }

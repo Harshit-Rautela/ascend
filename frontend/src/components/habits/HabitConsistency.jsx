@@ -1,192 +1,417 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-    ChartNoAxesCombined,
-    LoaderCircle,
+    Activity,
+    ArrowUpRight,
+    BookOpen,
+    Brain,
+    Bike,
     CalendarDays,
+    Check,
+    ChevronRight,
+    Code,
+    Dumbbell,
+    Flame,
+    Heart,
+    LoaderCircle,
+    Moon,
+    Sun,
+    Target,
+    X,
+    GraduationCap,
+    Droplets,
+    Apple,
 } from "lucide-react";
+import HabitAnalyticsModal from "./HabitsModal";
+import "./Habits.css";
 
 const API_URL = "http://localhost:5000/api/habits";
-const DAYS_TO_SHOW = 90;
 
-function getLocalDateString(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+const HABIT_ICONS = {
+    target: Target,
+    "book-open": BookOpen,
+    dumbbell: Dumbbell,
+    brain: Brain,
+    sun: Sun,
+    code: Code,
+    "graduation-cap": GraduationCap,
+    droplets: Droplets,
+    heart: Heart,
+    apple: Apple,
+    bike: Bike,
+    moon: Moon,
+};
 
-    return `${year}-${month}-${day}`;
+function dateKey(date) {
+    return [
+        date.getUTCFullYear(),
+        String(date.getUTCMonth() + 1).padStart(2, "0"),
+        String(date.getUTCDate()).padStart(2, "0"),
+    ].join("-");
 }
 
-function getLast90Days() {
-    const today = new Date();
-    today.setHours(12, 0, 0, 0);
-
-    return Array.from({ length: DAYS_TO_SHOW }, (_, index) => {
-        const date = new Date(today);
-        date.setDate(date.getDate() - (DAYS_TO_SHOW - 1 - index));
-
-        return getLocalDateString(date);
-    });
+function formatDate(value) {
+    return new Date(`${value}T00:00:00.000Z`).toLocaleDateString(
+        undefined,
+        {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+            timeZone: "UTC",
+        }
+    );
 }
 
-function formatDate(dateString) {
-    const [year, month, day] = dateString.split("-").map(Number);
-    const date = new Date(year, month - 1, day);
-
-    return date.toLocaleDateString(undefined, {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
+function getLast30DaysCount(habit) {
+    return `${habit.completedDays} / ${habit.eligibleDays} days`;
 }
 
-function Consistency() {
-    const [availableHabits, setAvailableHabits] = useState([]);
-    const [selectedHabitId, setSelectedHabitId] = useState("");
-    const [activity, setActivity] = useState([]);
-    const [habitTitle, setHabitTitle] = useState("");
+function getMotivationalMessage(completed, total) {
+    if (total === 0) {
+        return "Start building your consistency today.";
+    }
 
-    const [habitsLoading, setHabitsLoading] = useState(true);
-    const [loading, setLoading] = useState(false);
+    if (completed === total) {
+        return "Amazing work. You've completed every habit today!";
+    }
 
-    const [habitsError, setHabitsError] = useState("");
+    if (completed === 0) {
+        return "A fresh day is a fresh opportunity to begin.";
+    }
+
+    return `${total - completed} habit${total - completed === 1 ? "" : "s"} waiting. Keep your momentum going.`;
+}
+
+function buildWeeks(activity) {
+    if (!activity.length) return [];
+
+    const firstDate = new Date(`${activity[0].date}T00:00:00.000Z`);
+    const cells = [
+        ...Array(firstDate.getUTCDay()).fill(null),
+        ...activity,
+    ];
+
+    while (cells.length % 7 !== 0) {
+        cells.push(null);
+    }
+
+    const weeks = [];
+
+    for (let i = 0; i < cells.length; i += 7) {
+        weeks.push(cells.slice(i, i + 7));
+    }
+
+    return weeks;
+}
+
+// function HabitAnalyticsModal({ habit, onClose }) {
+//     const [activity, setActivity] = useState([]);
+//     const [selectedDay, setSelectedDay] = useState(null);
+//     const [loading, setLoading] = useState(true);
+//     const [error, setError] = useState("");
+
+//     const Icon = HABIT_ICONS[habit.icon] || Target;
+
+//     useEffect(() => {
+//         const controller = new AbortController();
+
+//         async function fetchHistory() {
+//             setLoading(true);
+//             setError("");
+
+//             try {
+//                 const response = await fetch(
+//                     `${API_URL}/${encodeURIComponent(habit.id)}/consistency?days=90`,
+//                     { signal: controller.signal }
+//                 );
+
+//                 const result = await response.json();
+
+//                 if (!response.ok) {
+//                     throw new Error(
+//                         result.error || "Could not load habit history."
+//                     );
+//                 }
+
+//                 if (!Array.isArray(result.activity)) {
+//                     throw new Error("Invalid consistency response.");
+//                 }
+
+//                 setActivity(result.activity);
+//             } catch (err) {
+//                 if (err.name !== "AbortError") {
+//                     setError(err.message || "Could not load habit history.");
+//                 }
+//             } finally {
+//                 if (!controller.signal.aborted) {
+//                     setLoading(false);
+//                 }
+//             }
+//         }
+
+//         fetchHistory();
+
+//         return () => controller.abort();
+//     }, [habit.id]);
+
+//     useEffect(() => {
+//         function handleEscape(event) {
+//             if (event.key === "Escape") onClose();
+//         }
+
+//         document.addEventListener("keydown", handleEscape);
+//         document.body.style.overflow = "hidden";
+
+//         return () => {
+//             document.removeEventListener("keydown", handleEscape);
+//             document.body.style.overflow = "";
+//         };
+//     }, [onClose]);
+
+//     const stats = useMemo(() => {
+//         const eligible = activity.filter((day) => day.eligible);
+//         const completed = eligible.filter((day) => day.completed);
+
+//         return {
+//             completed: completed.length,
+//             eligible: eligible.length,
+//             percentage: eligible.length
+//                 ? Math.round((completed.length / eligible.length) * 100)
+//                 : 0,
+//         };
+//     }, [activity]);
+
+//     const weeks = useMemo(() => buildWeeks(activity), [activity]);
+
+//     const activityByDate = useMemo(
+//         () => new Map(activity.map((day) => [day.date, day])),
+//         [activity]
+//     );
+
+//     return (
+//         <div
+//             className="habit-analytics-backdrop"
+//             onMouseDown={(event) => {
+//                 if (event.target === event.currentTarget) onClose();
+//             }}
+//         >
+//             <section
+//                 className="habit-analytics-modal"
+//                 role="dialog"
+//                 aria-modal="true"
+//                 aria-labelledby="habit-analytics-title"
+//             >
+//                 <div className="habit-analytics-modal-header">
+//                     <div className="habit-analytics-identity">
+//                         <div className="habit-analytics-icon">
+//                             <Icon size={23} />
+//                         </div>
+
+//                         <div>
+//                             <span>HABIT ANALYTICS</span>
+//                             <h2 id="habit-analytics-title">{habit.title}</h2>
+//                         </div>
+//                     </div>
+
+//                     <button
+//                         className="habit-analytics-close"
+//                         onClick={onClose}
+//                         aria-label="Close habit analytics"
+//                     >
+//                         <X size={20} />
+//                     </button>
+//                 </div>
+
+//                 {habit.description && (
+//                     <p className="habit-analytics-description">
+//                         {habit.description}
+//                     </p>
+//                 )}
+
+//                 <div className="habit-analytics-stats">
+//                     <div>
+//                         <span>30-day completion</span>
+//                         <strong>{habit.completionRate}%</strong>
+//                     </div>
+
+//                     <div>
+//                         <span>Completed days</span>
+//                         <strong>
+//                             {habit.completedDays}/{habit.eligibleDays}
+//                         </strong>
+//                     </div>
+
+//                     <div>
+//                         <span>Current streak</span>
+//                         <strong>{habit.currentStreak} days</strong>
+//                     </div>
+
+//                     <div>
+//                         <span>Longest streak</span>
+//                         <strong>{habit.longestStreak} days</strong>
+//                     </div>
+//                 </div>
+
+//                 <div className="habit-analytics-heatmap">
+//                     <div className="habit-analytics-section-heading">
+//                         <div>
+//                             <CalendarDays size={18} />
+//                             <h3>Last 90 days</h3>
+//                         </div>
+
+//                         <span>{stats.completed} completed</span>
+//                     </div>
+
+//                     {loading ? (
+//                         <div className="habit-analytics-loading">
+//                             <LoaderCircle className="habits-spinner" />
+//                             Loading history...
+//                         </div>
+//                     ) : error ? (
+//                         <div className="habit-analytics-error" role="alert">
+//                             {error}
+//                         </div>
+//                     ) : (
+//                         <>
+//                             <div className="habit-modal-heatmap-scroll">
+//                                 <div className="habit-modal-heatmap">
+//                                     <div className="habit-modal-weekdays">
+//                                         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+//                                             (day) => <span key={day}>{day}</span>
+//                                         )}
+//                                     </div>
+
+//                                     <div className="habit-modal-weeks">
+//                                         {weeks.map((week, weekIndex) => (
+//                                             <div className="habit-modal-week" key={weekIndex}>
+//                                                 {week.map((day, dayIndex) => {
+//                                                     const selected =
+//                                                         day && selectedDay?.date === day.date;
+
+//                                                     return (
+//                                                         <button
+//                                                             key={day?.date || `${weekIndex}-${dayIndex}`}
+//                                                             type="button"
+//                                                             disabled={!day}
+//                                                             className={[
+//                                                                 "habit-modal-cell",
+//                                                                 !day ? "empty" : "",
+//                                                                 day && !day.eligible ? "ineligible" : "",
+//                                                                 day?.eligible && !day.completed ? "missed" : "",
+//                                                                 day?.completed ? "completed" : "",
+//                                                                 selected ? "selected" : "",
+//                                                             ].join(" ")}
+//                                                             title={
+//                                                                 day
+//                                                                     ? `${formatDate(day.date)} — ${!day.eligible
+//                                                                         ? "Not tracked"
+//                                                                         : day.completed
+//                                                                             ? "Completed"
+//                                                                             : "Not completed"
+//                                                                     }`
+//                                                                     : undefined
+//                                                             }
+//                                                             aria-label={
+//                                                                 day
+//                                                                     ? `${formatDate(day.date)}: ${!day.eligible
+//                                                                         ? "Not tracked"
+//                                                                         : day.completed
+//                                                                             ? "Completed"
+//                                                                             : "Not completed"
+//                                                                     }`
+//                                                                     : "Empty calendar cell"
+//                                                             }
+//                                                             aria-pressed={Boolean(selected)}
+//                                                             onClick={() =>
+//                                                                 setSelectedDay((current) =>
+//                                                                     current?.date === day.date
+//                                                                         ? null
+//                                                                         : day
+//                                                                 )
+//                                                             }
+//                                                         />
+//                                                     );
+//                                                 })}
+//                                             </div>
+//                                         ))}
+//                                     </div>
+//                                 </div>
+//                             </div>
+
+//                             <div className="habit-modal-legend">
+//                                 <span>Not tracked</span>
+//                                 <i className="ineligible" />
+//                                 <span>Missed</span>
+//                                 <i className="missed" />
+//                                 <span>Completed</span>
+//                                 <i className="completed" />
+//                             </div>
+
+//                             {selectedDay && (
+//                                 <div className="habit-modal-selected-day" aria-live="polite">
+//                                     <div>
+//                                         <CalendarDays size={17} />
+//                                         <strong>{formatDate(selectedDay.date)}</strong>
+//                                     </div>
+
+//                                     <span className={
+//                                         !selectedDay.eligible
+//                                             ? "not-tracked"
+//                                             : selectedDay.completed
+//                                                 ? "done"
+//                                                 : "missed-status"
+//                                     }>
+//                                         {!selectedDay.eligible
+//                                             ? "Not tracked yet"
+//                                             : selectedDay.completed
+//                                                 ? "Completed"
+//                                                 : "Not completed"}
+//                                     </span>
+//                                 </div>
+//                             )}
+//                         </>
+//                     )}
+//                 </div>
+//             </section>
+//         </div>
+//     );
+// }
+
+function HabitConsistency() {
+    const [habits, setHabits] = useState([]);
+    const [overview, setOverview] = useState(null);
+    const [selectedHabit, setSelectedHabit] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    const [selectedDay, setSelectedDay] = useState(null);
-    const [retryCount, setRetryCount] = useState(0);
-
-    const dates = useMemo(() => getLast90Days(), []);
-
-    const activeHabits = useMemo(
-        () => availableHabits.filter((habit) => habit.isActive !== false),
-        [availableHabits]
-    );
-
-    // Fetch active habits independently of the daily habits endpoint.
     useEffect(() => {
         const controller = new AbortController();
 
-        async function fetchActiveHabits() {
-            setHabitsLoading(true);
-            setHabitsError("");
+        async function fetchAnalytics() {
+            setLoading(true);
+            setError("");
 
             try {
-
-                const response = await fetch(API_URL, {
+                const response = await fetch(`${API_URL}/analytics`, {
                     signal: controller.signal,
                 });
 
-                const contentType = response.headers.get("content-type") || "";
-
-                if (!contentType.includes("application/json")) {
-                    const body = await response.text();
-
-                    throw new Error(
-                        `Expected JSON from ${API_URL}, but received ${contentType || "an unknown content type"}. Check your backend URL and port.`
-                    );
-                }
-
                 const result = await response.json();
+                console.log("Habit analytics:", result.habits);
+                console.log("Seven-day activity:", result.habits?.[0]?.last7Days);
 
                 if (!response.ok) {
                     throw new Error(
-                        result.error || result.message || "Could not load active habits."
+                        result.error || "Could not load habit analytics."
                     );
                 }
 
-                // Support common API response shapes.
-                const habitsData = Array.isArray(result)
-                    ? result
-                    : Array.isArray(result.habits)
-                        ? result.habits
-                        : Array.isArray(result.data)
-                            ? result.data
-                            : null;
-
-                if (!habitsData) {
-                    console.error("Unexpected habits API response:", result);
-
-                    throw new Error(
-                        "The habits API did not return an array. Check the console for its response."
-                    );
-                }
-
-                const active = habitsData.filter(
-                    (habit) => habit.isActive !== false
-                );
-
-                setAvailableHabits(active);
-
-                setSelectedHabitId((currentId) =>
-                    active.some((habit) => habit.id === currentId)
-                        ? currentId
-                        : active[0]?.id ?? ""
-                );
-
+                setOverview(result.overview);
+                setHabits(Array.isArray(result.habits) ? result.habits : []);
             } catch (err) {
                 if (err.name !== "AbortError") {
-                    setHabitsError(
-                        err.message || "Could not load active habits."
-                    );
-                }
-            } finally {
-                if (!controller.signal.aborted) {
-                    setHabitsLoading(false);
-                }
-            }
-        }
-
-        fetchActiveHabits();
-
-        return () => controller.abort();
-    }, []);
-
-    // Fetch completion history for the selected habit.
-    useEffect(() => {
-        if (!selectedHabitId) {
-            setActivity([]);
-            setHabitTitle("");
-            setLoading(false);
-            setError("");
-            return;
-        }
-
-        const controller = new AbortController();
-
-        async function fetchConsistency() {
-            setLoading(true);
-            setError("");
-            setSelectedDay(null);
-            setActivity([]);
-
-            try {
-                const response = await fetch(
-                    `${API_URL}/${encodeURIComponent(
-                        selectedHabitId
-                    )}/consistency?days=${DAYS_TO_SHOW}`,
-                    { signal: controller.signal }
-                );
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(
-                        result.error || "Could not load consistency data."
-                    );
-                }
-
-                if (!Array.isArray(result.activity)) {
-                    throw new Error("The consistency API returned invalid data.");
-                }
-
-                setHabitTitle(result.habit?.title ?? "");
-                setActivity(result.activity);
-            } catch (err) {
-                if (err.name !== "AbortError") {
-                    setError(
-                        err.message || "Could not load consistency data."
-                    );
+                    setError(err.message || "Could not load habit analytics.");
                 }
             } finally {
                 if (!controller.signal.aborted) {
@@ -195,143 +420,38 @@ function Consistency() {
             }
         }
 
-        fetchConsistency();
+        fetchAnalytics();
 
         return () => controller.abort();
-    }, [selectedHabitId, retryCount]);
+    }, []);
 
-    const activityByDate = useMemo(
-        () => new Map(activity.map((day) => [day.date, day])),
-        [activity]
+    const bestHabit = useMemo(
+        () => [...habits].sort(
+            (a, b) => b.currentStreak - a.currentStreak
+        )[0],
+        [habits]
     );
 
-    const stats = useMemo(() => {
-        const eligibleDays = activity.filter((day) => day.eligible);
-        const completedDays = eligibleDays.filter((day) => day.completed);
-
-        return {
-            completed: completedDays.length,
-            eligible: eligibleDays.length,
-            percentage: eligibleDays.length
-                ? Math.round(
-                    (completedDays.length / eligibleDays.length) * 100
-                )
-                : 0,
-        };
-    }, [activity]);
-
-    // Arrange the dates into seven weekday rows and weekly columns.
-    const weeks = useMemo(() => {
-        const [year, month, day] = dates[0].split("-").map(Number);
-        const firstDate = new Date(year, month - 1, day);
-        const leadingEmptyCells = firstDate.getDay();
-
-        const cells = [
-            ...Array(leadingEmptyCells).fill(null),
-            ...dates,
-        ];
-
-        while (cells.length % 7 !== 0) {
-            cells.push(null);
-        }
-
-        const result = [];
-
-        for (let index = 0; index < cells.length; index += 7) {
-            result.push(cells.slice(index, index + 7));
-        }
-
-        return result;
-    }, [dates]);
-
-    function getCellClass(day) {
-        if (!day) {
-            return "consistency-cell consistency-cell-empty";
-        }
-
-        if (!day.eligible) {
-            return "consistency-cell consistency-cell-ineligible";
-        }
-
-        if (day.completed) {
-            return "consistency-cell consistency-cell-completed";
-        }
-
-        return "consistency-cell consistency-cell-missed";
-    }
-
-    function handleDayClick(day) {
-        if (!day) return;
-
-        setSelectedDay((current) =>
-            current?.date === day.date ? null : day
-        );
-    }
-
-    function retryFetch() {
-        if (habitsError) {
-            // The initial habit-list request failed. Reload the component
-            // data by asking the user to retry the request.
-            setHabitsError("");
-            setHabitsLoading(true);
-
-            fetch(API_URL)
-                .then(async (response) => {
-                    const result = await response.json();
-
-                    if (!response.ok) {
-                        throw new Error(
-                            result.error || "Could not load active habits."
-                        );
-                    }
-
-                    if (!Array.isArray(result)) {
-                        throw new Error("The habits API returned an unexpected response.");
-                    }
-
-                    const active = result.filter(
-                        (habit) => habit.isActive !== false
-                    );
-
-                    setAvailableHabits(active);
-                    setSelectedHabitId((currentId) =>
-                        active.some((habit) => habit.id === currentId)
-                            ? currentId
-                            : active[0]?.id ?? ""
-                    );
-                })
-                .catch((err) => {
-                    setHabitsError(
-                        err.message || "Could not load active habits."
-                    );
-                })
-                .finally(() => {
-                    setHabitsLoading(false);
-                });
-
-            return;
-        }
-
-        setRetryCount((count) => count + 1);
-    }
-
-    if (habitsLoading) {
+    if (loading) {
         return (
-            <section className="consistency-panel">
+            <section className="consistency-panel consistency-dashboard">
                 <div className="consistency-state" role="status">
-                    <LoaderCircle className="habits-spinner" size={24} />
-                    <span>Loading active habits...</span>
+                    <LoaderCircle className="habits-spinner" size={25} />
+                    Loading your habit analytics...
                 </div>
             </section>
         );
     }
 
-    if (habitsError) {
+    if (error) {
         return (
-            <section className="consistency-panel">
+            <section className="consistency-panel consistency-dashboard">
                 <div className="consistency-error" role="alert">
-                    <p>{habitsError}</p>
-                    <button type="button" onClick={retryFetch}>
+                    <p>{error}</p>
+                    <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                    >
                         Try again
                     </button>
                 </div>
@@ -339,204 +459,276 @@ function Consistency() {
         );
     }
 
-    if (activeHabits.length === 0) {
+    if (!overview || habits.length === 0) {
         return (
-            <section className="consistency-panel">
+            <section className="consistency-panel consistency-dashboard">
                 <div className="consistency-empty">
-                    <ChartNoAxesCombined size={30} />
+                    <Activity size={32} />
                     <h3>No active habits yet</h3>
-                    <p>
-                        Create an active habit to start tracking its consistency.
-                    </p>
+                    <p>Create an active habit to start tracking your consistency.</p>
                 </div>
             </section>
         );
     }
 
     return (
-        <section className="consistency-panel">
-            <div className="consistency-heading">
-                <div className="consistency-heading-icon">
-                    <ChartNoAxesCombined size={22} />
-                </div>
-
+        <section className="consistency-panel consistency-dashboard">
+            <div className="consistency-dashboard-heading">
                 <div>
+                    <span className="consistency-eyebrow">YOUR PERFORMANCE</span>
                     <h2>Consistency</h2>
-                    <p>Track your daily progress over the last 90 days.</p>
+                    <p>A clearer picture of the habits you're building.</p>
+                </div>
+
+                <div className="consistency-heading-icon">
+                    <Activity size={23} />
                 </div>
             </div>
 
-            <div className="consistency-controls">
-                <label htmlFor="consistency-habit-select">
-                    Select habit
-                </label>
+            <div className="consistency-hero">
+                <div className="consistency-hero-copy">
+                    <span>FOCUS · TODAY</span>
+                    <h3>{getMotivationalMessage(
+                        overview.todayCompleted,
+                        overview.todayEligible
+                    )}</h3>
 
-                <select
-                    id="consistency-habit-select"
-                    value={selectedHabitId}
-                    onChange={(event) => setSelectedHabitId(event.target.value)}
-                >
-                    {activeHabits.map((habit) => (
-                        <option key={habit.id} value={habit.id}>
-                            {habit.title}
-                        </option>
-                    ))}
-                </select>
-            </div>
-
-            {loading ? (
-                <div className="consistency-state" role="status">
-                    <LoaderCircle className="habits-spinner" size={24} />
-                    <span>Loading consistency...</span>
-                </div>
-            ) : error ? (
-                <div className="consistency-error" role="alert">
-                    <p>{error}</p>
-                    <button type="button" onClick={retryFetch}>
-                        Try again
-                    </button>
-                </div>
-            ) : (
-                <>
-                    <div className="consistency-summary">
-                        <div>
-                            <span className="consistency-summary-label">
-                                Selected habit
-                            </span>
-                            <strong>{habitTitle}</strong>
-                        </div>
-
-                        <div>
-                            <span className="consistency-summary-label">
-                                Completion rate
-                            </span>
-                            <strong>{stats.percentage}%</strong>
-                        </div>
-
-                        <div>
-                            <span className="consistency-summary-label">
-                                Days completed
-                            </span>
-                            <strong>
-                                {stats.completed} / {stats.eligible}
-                            </strong>
-                        </div>
+                    <div className="consistency-hero-meta">
+                        <span>
+                            <Check size={13} />
+                            {overview.todayCompleted} completed
+                        </span>
+                        <span>
+                            {Math.max(
+                                0,
+                                overview.todayEligible - overview.todayCompleted
+                            )} remaining
+                        </span>
                     </div>
+                </div>
 
-                    <div className="consistency-heatmap-card">
-                        <div className="consistency-heatmap-top">
-                            <div>
-                                <CalendarDays size={18} />
-                                <span>Last 90 days</span>
-                            </div>
+                <div className="consistency-hero-progress">
+                    <strong>{overview.todayCompleted}</strong>
+                    <span> / {overview.todayEligible}</span>
+                    <small>done today</small>
+                </div>
+            </div>
 
-                            <span className="consistency-total">
-                                {stats.completed}{" "}
-                                {stats.completed === 1 ? "day" : "days"} completed
-                            </span>
-                        </div>
+            <div className="consistency-kpi-strip">
+                <div className="consistency-kpi">
+                    <span>TODAY</span>
+                    <strong>
+                        {overview.todayCompleted}/{overview.todayEligible}
+                    </strong>
+                    <small>Habits completed</small>
+                </div>
 
-                        <div className="consistency-scroll">
-                            <div
-                                className="consistency-heatmap"
-                                role="group"
-                                aria-label={`${habitTitle} completion history for the last 90 days`}
-                            >
-                                <div
-                                    className="consistency-weekday-labels"
-                                    aria-hidden="true"
-                                >
-                                    <span>Sun</span>
-                                    <span>Mon</span>
-                                    <span>Tue</span>
-                                    <span>Wed</span>
-                                    <span>Thu</span>
-                                    <span>Fri</span>
-                                    <span>Sat</span>
+                <div className="consistency-kpi">
+                    <span>LONGEST ACTIVE STREAK</span>
+                    <strong>{overview.bestCurrentStreak}</strong>
+                    <small>days · {bestHabit?.title || "No active streak"}</small>
+                </div>
+
+                <div className="consistency-kpi">
+                    <span>30-DAY CONSISTENCY</span>
+                    <strong>{overview.completionRate30Days}%</strong>
+                    <small>Across all active habits</small>
+                </div>
+
+                <div className="consistency-kpi">
+                    <span>TOTAL STREAK DAYS</span>
+                    <strong>{overview.totalStreakDays}</strong>
+                    <small>Across {habits.length} habits</small>
+                </div>
+            </div>
+
+            <div className="consistency-habits-heading">
+                <div>
+                    <h3>Your habits</h3>
+                    <span>{habits.length} active</span>
+                </div>
+
+                <span className="consistency-click-hint">
+                    Select a habit to explore <ArrowUpRight size={14} />
+                </span>
+            </div>
+
+            <div className="consistency-habit-grid">
+                {habits.map((habit) => {
+                    const Icon = HABIT_ICONS[habit.icon] || Target;
+
+                    return (
+                        <button
+                            type="button"
+                            className="consistency-habit-card"
+                            key={habit.id}
+                            onClick={() => setSelectedHabit(habit)}
+                            aria-label={`View analytics for ${habit.title}`}
+                        >
+                            <div className="consistency-card-top">
+                                <div className="consistency-card-identity">
+                                    <div className="consistency-card-icon">
+                                        <Icon size={19} />
+                                    </div>
+
+                                    <div>
+                                        <h4>{habit.title}</h4>
+                                        <span>
+                                            {habit.description || "Your daily habit"}
+                                        </span>
+                                    </div>
                                 </div>
 
-                                <div className="consistency-weeks">
-                                    {weeks.map((week, weekIndex) => (
-                                        <div
-                                            className="consistency-week"
-                                            key={weekIndex}
-                                        >
-                                            {week.map((date, dayIndex) => {
-                                                const day = date
-                                                    ? activityByDate.get(date)
-                                                    : null;
+                                <div className="consistency-card-open">
+                                    <ChevronRight size={18} />
+                                </div>
+                            </div>
 
-                                                const isSelected =
-                                                    day && selectedDay?.date === day.date;
+                            <div className="consistency-streak-block">
+                                <div className="consistency-streak-main">
+                                    <div className="consistency-streak-info">
+                                        <span>CURRENT STREAK</span>
 
-                                                const status = !day
-                                                    ? "No date"
-                                                    : !day.eligible
-                                                        ? "Before habit started"
-                                                        : day.completed
-                                                            ? "Completed"
-                                                            : "Not completed";
-
-                                                return (
-                                                    <button
-                                                        key={
-                                                            date ??
-                                                            `empty-${weekIndex}-${dayIndex}`
-                                                        }
-                                                        type="button"
-                                                        className={`${getCellClass(day)} ${isSelected
-                                                                ? "consistency-cell-selected"
-                                                                : ""
-                                                            }`}
-                                                        disabled={!day}
-                                                        onClick={() => handleDayClick(day)}
-                                                        title={
-                                                            day
-                                                                ? `${formatDate(day.date)} — ${status}`
-                                                                : undefined
-                                                        }
-                                                        aria-label={
-                                                            day
-                                                                ? `${formatDate(day.date)}: ${status}`
-                                                                : "No date"
-                                                        }
-                                                    />
-                                                );
-                                            })}
+                                        <div className="consistency-streak-value">
+                                            <strong>{habit.currentStreak}</strong>
+                                            <small>days</small>
+                                            <Flame size={16} />
                                         </div>
-                                    ))}
+
+                                        <small>Best: {habit.longestStreak} days</small>
+                                    </div>
+
+                                    <div
+                                        className="consistency-7day-grid"
+                                        aria-label="Last seven days activity"
+                                    >
+                                        {(Array.isArray(habit.last7Days)
+                                            ? habit.last7Days
+                                            : []
+                                        ).map((day) => (
+                                            <div
+                                                key={day.date}
+                                                className={[
+                                                    "consistency-7day-cell",
+                                                    !day.eligible
+                                                        ? "not-eligible"
+                                                        : day.completed
+                                                            ? "completed"
+                                                            : "missed",
+                                                    day.isToday ? "today" : "",
+                                                ].join(" ")}
+                                                title={`${day.date}: ${!day.eligible
+                                                    ? "Not tracked"
+                                                    : day.completed
+                                                        ? "Completed"
+                                                        : "Missed"
+                                                    }`}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="consistency-legend">
-                            <span>Less</span>
-                            <span className="consistency-cell consistency-cell-ineligible" />
-                            <span className="consistency-cell consistency-cell-missed" />
-                            <span className="consistency-cell consistency-cell-completed" />
-                            <span>More</span>
-                        </div>
+                            <div className="consistency-card-footer">
+                                <div className="consistency-card-rate">
+                                    <strong>{habit.completionRate}%</strong>
+                                    <span>Last 30 days</span>
+                                </div>
 
-                        {selectedDay && (
-                            <div
-                                className="consistency-day-details"
-                                aria-live="polite"
-                            >
-                                <strong>{formatDate(selectedDay.date)}</strong>
                                 <span>
-                                    {!selectedDay.eligible
-                                        ? "Habit had not started yet"
-                                        : selectedDay.completed
-                                            ? "Habit completed"
-                                            : "Habit not completed"}
+                                    {habit.completedDays} / {habit.eligibleDays} days
                                 </span>
                             </div>
-                        )}
-                    </div>
-                </>
+
+                            <div className="consistency-30day-grid">
+                                {(Array.isArray(habit.last30Days)
+                                    ? habit.last30Days
+                                    : []
+                                ).map((day) => (
+                                    <div
+                                        key={day.date}
+                                        className={[
+                                            "consistency-30day-cell",
+                                            !day.eligible
+                                                ? "not-eligible"
+                                                : day.completed
+                                                    ? "completed"
+                                                    : "missed",
+                                            day.isToday ? "today" : "",
+                                        ].join(" ")}
+                                        title={`${day.date}: ${!day.eligible
+                                            ? "Not tracked"
+                                            : day.completed
+                                                ? "Completed"
+                                                : "Missed"
+                                            }`}
+                                    />
+                                ))}
+                            </div>
+
+                            {/* <div className="consistency-30day-labels">
+    <span>30 days ago</span>
+    <span>Today</span>
+</div>
+
+                            <div className="consistency-card-footer">
+                                <div className="consistency-card-rate">
+                                    <strong>{habit.completionRate}%</strong>
+                                    <span>Last 30 days</span>
+                                </div>
+
+                                <span>{getLast30DaysCount(habit)}</span>
+                            </div>
+
+                            <div className="consistency-card-footer">
+                                <div className="consistency-card-rate">
+                                    <strong>{habit.completionRate}%</strong>
+                                    <span>Last 30 days</span>
+                                </div>
+
+                                <span>{habit.completedDays} / {habit.eligibleDays} days</span>
+                            </div>
+
+                            <div className="consistency-30day-grid">
+                                {(Array.isArray(habit.last30Days) ? habit.last30Days : []).map((day) => (
+                                    <div
+                                        key={day.date}
+                                        className={[
+                                            "consistency-30day-cell",
+                                            !day.eligible
+                                                ? "not-eligible"
+                                                : day.completed
+                                                    ? "completed"
+                                                    : "missed",
+                                            day.isToday ? "today" : "",
+                                        ].join(" ")}
+                                        title={`${day.date}: ${!day.eligible
+                                                ? "Not tracked"
+                                                : day.completed
+                                                    ? "Completed"
+                                                    : "Missed"
+                                            }`}
+                                    />
+                                ))}
+                            </div> */}
+
+                            <div className="consistency-30day-labels">
+                                <span>30 days ago</span>
+                                <span>Today</span>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {selectedHabit && (
+                <HabitAnalyticsModal
+                    habit={selectedHabit}
+                    onClose={() => setSelectedHabit(null)}
+                />
             )}
         </section>
     );
 }
 
-export default Consistency;
+export default HabitConsistency;

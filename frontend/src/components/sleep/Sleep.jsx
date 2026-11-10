@@ -27,6 +27,7 @@ import {
 // import "./Sleep.css";
 import "./sleep.css"
 import SleepHistory from "./SleepHistory.jsx";
+import SleepInsights from "./SleepInsights.jsx";
 const SLEEP_GOAL = 8;
 
 function formatDuration(minutes) {
@@ -578,6 +579,7 @@ function Sleep() {
                 </>)}
 
             {activeTab === "History" && <SleepHistory />}
+            {activeTab === "Insights" && <SleepInsights />}
             {/* Log sleep modal */}
             {showForm && (
                 <div

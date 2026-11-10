@@ -2,6 +2,21 @@
 import { Router } from "express";
 import prisma from "../prisma.js";
 
+const ALLOWED_HABIT_ICONS = new Set([
+    "target",
+    "book-open",
+    "dumbbell",
+    "brain",
+    "sun",
+    "code",
+    "graduation-cap",
+    "droplets",
+    "heart",
+    "apple",
+    "bike",
+    "moon",
+]);
+
 const router = Router();
 function parseDate(value) {
     if (
@@ -49,6 +64,360 @@ router.get("/", async (req, res) => {
  * Returns the selected active habit's completion history.
  * The range includes today and the previous days.
  */
+
+
+// GET /api/habits/analytics
+// Aggregate analytics for the all-habits Consistency dashboard.
+
+router.get("/analytics", async (req, res) => {
+    try {
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+
+        const todayKey = today.toISOString().slice(0, 10);
+
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 29);
+
+        const startKey = thirtyDaysAgo.toISOString().slice(0, 10);
+
+        const habits = await prisma.habit.findMany({
+            where: { isActive: true },
+            orderBy: { createdAt: "asc" },
+            include: {
+                completions: {
+                    select: {
+                        completionDate: true,
+                    },
+                    orderBy: {
+                        completionDate: "asc",
+                    },
+                },
+            },
+        });
+
+        const getDateKey = (date) =>
+            date.toISOString().slice(0, 10);
+
+        const addDays = (date, amount) => {
+            const result = new Date(date);
+            result.setUTCDate(result.getUTCDate() + amount);
+            return result;
+        };
+
+        const getStreaks = (completedDates) => {
+            const sortedDates = [...completedDates].sort();
+
+            if (sortedDates.length === 0) {
+                return { currentStreak: 0, longestStreak: 0 };
+            }
+
+            const completedSet = new Set(sortedDates);
+
+            // A streak remains active if the last completion
+            // was today or yesterday.
+            let currentStreak = 0;
+            let cursor = new Date(today);
+
+            if (!completedSet.has(getDateKey(cursor))) {
+                cursor = addDays(cursor, -1);
+            }
+
+            while (completedSet.has(getDateKey(cursor))) {
+                currentStreak++;
+                cursor = addDays(cursor, -1);
+            }
+
+            let longestStreak = 0;
+            let runningStreak = 0;
+            let previousDate = null;
+
+            for (const dateKey of sortedDates) {
+                const date = new Date(`${dateKey}T00:00:00.000Z`);
+
+                if (
+                    previousDate &&
+                    getDateKey(addDays(previousDate, 1)) === dateKey
+                ) {
+                    runningStreak++;
+                } else {
+                    runningStreak = 1;
+                }
+
+                longestStreak = Math.max(
+                    longestStreak,
+                    runningStreak
+                );
+
+                previousDate = date;
+            }
+
+            return { currentStreak, longestStreak };
+        };
+
+        let todayCompleted = 0;
+        let todayEligible = 0;
+
+        let totalCompleted30 = 0;
+        let totalEligible30 = 0;
+
+        let bestCurrentStreak = 0;
+        let totalStreakDays = 0;
+
+        const habitAnalytics = habits.map((habit) => {
+            const createdKey = getDateKey(habit.createdAt);
+
+            const completedDates = habit.completions.map(
+                (completion) => getDateKey(completion.completionDate)
+            );
+
+            const completedSet = new Set(completedDates);
+
+            const eligible30Days = Math.max(
+                0,
+                Math.floor(
+                    (today.getTime() -
+                        Math.max(
+                            new Date(`${startKey}T00:00:00.000Z`).getTime(),
+                            new Date(`${createdKey}T00:00:00.000Z`).getTime()
+                        )) / 86400000
+                ) + 1
+            );
+
+            const completed30Days = completedDates.filter(
+                (date) => date >= startKey && date <= todayKey
+            ).length;
+
+            const streaks = getStreaks(completedDates);
+            const last30Days = Array.from({ length: 30 }, (_, index) => {
+                const date = addDays(thirtyDaysAgo, index);
+                const key = getDateKey(date);
+
+                const eligible = key >= createdKey && key <= todayKey;
+
+                return {
+                    date: key,
+                    eligible,
+                    completed: eligible && completedSet.has(key),
+                    isToday: key === todayKey,
+                };
+            });
+            const last7Days = Array.from({ length: 7 }, (_, index) => {
+                const date = addDays(today, index - 6);
+                const key = getDateKey(date);
+
+                const eligible = key >= createdKey && key <= todayKey;
+
+                return {
+                    date: key,
+                    eligible,
+                    completed: eligible && completedSet.has(key),
+                    isToday: key === todayKey,
+                };
+            });
+
+            if (createdKey <= todayKey) {
+                todayEligible++;
+                if (completedSet.has(todayKey)) {
+                    todayCompleted++;
+                }
+            }
+
+            totalEligible30 += eligible30Days;
+            totalCompleted30 += completed30Days;
+
+            bestCurrentStreak = Math.max(
+                bestCurrentStreak,
+                streaks.currentStreak
+            );
+
+            totalStreakDays += streaks.currentStreak;
+
+            return {
+                id: habit.id,
+                title: habit.title,
+                description: habit.description,
+                icon: habit.icon,
+                createdAt: habit.createdAt,
+                completionRate: eligible30Days
+                    ? Math.round(
+                        (completed30Days / eligible30Days) * 100
+                    )
+                    : 0,
+                completedDays: completed30Days,
+                eligibleDays: eligible30Days,
+                last7Days,
+                last30Days,
+                currentStreak: streaks.currentStreak,
+                longestStreak: streaks.longestStreak,
+            };
+        });
+        console.log(
+            "ANALYTICS ROUTE:",
+            habitAnalytics.map((habit) => ({
+                id: habit.id,
+                title: habit.title,
+                last7Days: habit.last7Days,
+                last7DaysLength: habit.last7Days?.length,
+            }))
+        );
+
+        return res.json({
+            debugRoute: "habits-analytics-last7-v1",
+            overview: {
+                activeHabits: habits.length,
+                todayCompleted,
+                todayEligible,
+                todayCompletionRate: todayEligible
+                    ? Math.round(
+                        (todayCompleted / todayEligible) * 100
+                    )
+                    : 0,
+                completionRate30Days: totalEligible30
+                    ? Math.round(
+                        (totalCompleted30 / totalEligible30) * 100
+                    )
+                    : 0,
+                bestCurrentStreak,
+                totalStreakDays,
+                totalCompletions: totalCompleted30,
+            },
+            habits: habitAnalytics,
+        });
+    } catch (error) {
+        console.error("Error fetching habit analytics:", error);
+
+        return res.status(500).json({
+            error: "Failed to fetch habit analytics.",
+        });
+    }
+});
+
+
+/**
+ * GET /api/habits/history/chart
+ *
+ * Returns aggregate daily completion percentages
+ * for the last 30 calendar days, including today.
+ */
+router.get("/history/chart", async (req, res) => {
+    try {
+        // Normalize today to UTC midnight.
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+
+        const todayKey = today.toISOString().slice(0, 10);
+
+        // Calculate the beginning of the 30-day range.
+        const startDate = new Date(today);
+        startDate.setUTCDate(startDate.getUTCDate() - 29);
+
+        const startKey = startDate.toISOString().slice(0, 10);
+
+        // Exclusive end boundary: tomorrow at UTC midnight.
+        const endDateExclusive = new Date(today);
+        endDateExclusive.setUTCDate(
+            endDateExclusive.getUTCDate() + 1
+        );
+
+        // Fetch active habits that existed before the end
+        // of the requested date range, with their completions
+        // inside that range.
+        const habits = await prisma.habit.findMany({
+            where: {
+                isActive: true,
+                createdAt: {
+                    lt: endDateExclusive,
+                },
+            },
+            select: {
+                id: true,
+                createdAt: true,
+                completions: {
+                    where: {
+                        completionDate: {
+                            gte: startDate,
+                            lt: endDateExclusive,
+                        },
+                    },
+                    select: {
+                        completionDate: true,
+                    },
+                },
+            },
+        });
+
+        // Build a map of completed dates for each habit.
+        const habitCompletionMap = habits.map((habit) => ({
+            createdKey: habit.createdAt.toISOString().slice(0, 10),
+
+            completedDates: new Set(
+                habit.completions.map((completion) =>
+                    completion.completionDate
+                        .toISOString()
+                        .slice(0, 10)
+                )
+            ),
+        }));
+
+        const data = [];
+
+        // Generate one aggregate entry for every calendar day.
+        for (let i = 0; i < 30; i++) {
+            const date = new Date(startDate);
+
+            date.setUTCDate(date.getUTCDate() + i);
+
+            const dateKey = date.toISOString().slice(0, 10);
+
+            let eligible = 0;
+            let completed = 0;
+
+            for (const habit of habitCompletionMap) {
+                // A habit is eligible only from its creation date.
+                if (habit.createdKey > dateKey) {
+                    continue;
+                }
+
+                eligible++;
+
+                if (habit.completedDates.has(dateKey)) {
+                    completed++;
+                }
+            }
+
+            data.push({
+                date: dateKey,
+                completed,
+                eligible,
+
+                // null means no habits were eligible that day.
+                percentage: eligible
+                    ? Math.round((completed / eligible) * 100)
+                    : null,
+            });
+        }
+
+        return res.json({
+            period: "daily",
+            days: 30,
+            startDate: startKey,
+            endDate: todayKey,
+            data,
+        });
+    } catch (error) {
+        console.error(
+            "Error fetching habit history chart:",
+            error
+        );
+
+        return res.status(500).json({
+            error: "Failed to fetch habit history chart.",
+        });
+    }
+});
+
+
 router.get("/:id/consistency", async (req, res) => {
     try {
         const requestedDays = Number(req.query.days ?? 90);
@@ -158,7 +527,7 @@ router.get("/:id/consistency", async (req, res) => {
 
 router.post("/", async (req, res) => {
     try {
-        const { title, description } = req.body ?? {};
+        const { title, description, icon = "target" } = req.body ?? {};
 
         if (typeof title !== "string" || !title.trim()) {
             return res.status(400).json({
@@ -175,7 +544,14 @@ router.post("/", async (req, res) => {
                 error: "Description must be a string or null.",
             });
         }
-
+        if (
+            typeof icon !== "string" ||
+            !ALLOWED_HABIT_ICONS.has(icon)
+        ) {
+            return res.status(400).json({
+                error: "Invalid habit icon.",
+            });
+        }
         const habit = await prisma.habit.create({
             data: {
                 title: title.trim(),
@@ -183,6 +559,7 @@ router.post("/", async (req, res) => {
                     typeof description === "string" && description.trim()
                         ? description.trim()
                         : null,
+                icon,
             },
         });
 
@@ -238,6 +615,8 @@ router.get("/daily", async (req, res) => {
             id: habit.id,
             title: habit.title,
             description: habit.description,
+            icon: habit.icon,
+
             completed: habit.completions.length > 0,
         }));
 
@@ -340,7 +719,7 @@ router.delete("/:id/completions", async (req, res) => {
 
 router.patch("/:id", async (req, res) => {
     try {
-        const { title, description, isActive } = req.body ?? {};
+        const { title, description, isActive, icon } = req.body ?? {};
         const data = {};
 
         if (title !== undefined) {
@@ -377,6 +756,18 @@ router.patch("/:id", async (req, res) => {
             }
 
             data.isActive = isActive;
+        }
+        if (icon !== undefined) {
+            if (
+                typeof icon !== "string" ||
+                !ALLOWED_HABIT_ICONS.has(icon)
+            ) {
+                return res.status(400).json({
+                    error: "Invalid habit icon.",
+                });
+            }
+
+            data.icon = icon;
         }
 
         if (Object.keys(data).length === 0) {

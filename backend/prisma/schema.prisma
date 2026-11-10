@@ -190,6 +190,8 @@ model Habit {
   id          String            @id @default(cuid())
   title       String
   description String?
+  icon        String            @default("target")
+
   isActive    Boolean           @default(true)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
