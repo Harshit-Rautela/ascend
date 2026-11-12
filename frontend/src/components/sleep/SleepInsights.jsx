@@ -15,8 +15,10 @@ import {
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import API_BASE_URL from "../../config/api";
 
-const API_URL = "http://localhost:5000/api/sleep/insights/chat";
+
+const API_URL = `${API_BASE_URL}/sleep/insights/chat`;
 
 const SUGGESTED_QUESTIONS = [
     {

@@ -21,8 +21,9 @@ import {
 
 import DailyQuotes from "./DailyQuotes";
 import "./dashboard.css";
+import API_BASE_URL from "../../config/api";
 
-const API_BASE_URL = "http://localhost:5000/api";
+
 
 function getLocalDateString() {
   const date = new Date();

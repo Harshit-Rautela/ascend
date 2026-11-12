@@ -12,10 +12,11 @@ import {
     LoaderCircle,
 } from "lucide-react";
 import "./workouts.css";
+import API_BASE_URL from "../../config/api";
 import WeeklyPlanEditor from "./WeeklyPlanEditor";
 
-const API_URL = "http://localhost:5000/api/training-plans";
-const WORKOUTS_API_URL = "http://localhost:5000/api/workouts";
+const API_URL = `${API_BASE_URL}/training-plans`;
+const WORKOUTS_API_URL = `${API_BASE_URL}/workouts`;
 
 const DAYS = [
     { name: "Monday", value: 1 },

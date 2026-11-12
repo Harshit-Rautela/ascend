@@ -7,8 +7,10 @@ import {
   Dumbbell,
   RefreshCw,
 } from "lucide-react";
+import API_BASE_URL from "../../config/api";
 
-const API_URL = "http://localhost:5000/api/workouts";
+
+const API_URL = `${API_BASE_URL}/workouts`;
 
 function getLocalDateString(date = new Date()) {
   const year = date.getFullYear();

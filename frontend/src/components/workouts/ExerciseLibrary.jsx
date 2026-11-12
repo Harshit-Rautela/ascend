@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import ExerciseDetailsModal from "./ExerciseDetailsModal";
 import "./workouts.css";
-const API_URL = "http://localhost:5000/api/exercise";
+import API_BASE_URL from "../../config/api";
+const API_URL = `${API_BASE_URL}/exercise`;
 
 const categories = [
   { label: "Strength", value: "STRENGTH" },
@@ -319,7 +320,7 @@ function ExerciseLibrary() {
       formData.append("file", file);
 
       const response = await fetch(
-        "http://localhost:5000/api/media/image",
+        `${API_BASE_URL}/media/image`,
         {
           method: "POST",
           body: formData,

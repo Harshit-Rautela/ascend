@@ -29,8 +29,10 @@ import {
 import "./Habits.css";
 import HabitHistory from "./HabitHistory.jsx"
 import HabitConsistency from "./HabitConsistency.jsx";
+import API_BASE_URL from "../../config/api";
 
-const API_URL = "http://localhost:5000/api/habits";
+const API_URL = `${API_BASE_URL}/habits`;
+
 
 const HABIT_ICONS = [
   { name: "target", label: "Goals", component: Target },

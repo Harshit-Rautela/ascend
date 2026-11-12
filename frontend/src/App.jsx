@@ -33,6 +33,7 @@ import Habits from "./components/habits/Habits";
 import Stats from "./components/stats/Stats";
 import Dashboard from "./components/dashboard/Dashboard";
 import Sleep from "./components/sleep/Sleep";
+import API_BASE_URL from "./config/api";
 
 const navigation = [
   { label: "Dashboard", icon: LayoutDashboard },
@@ -154,7 +155,7 @@ function App() {
   useEffect(() => {
     async function fetchWeightHistory() {
       try {
-        const response = await fetch("http://localhost:5000/api/weight");
+        const response = await fetch(`${API_BASE_URL}/weight`);
         const result = await response.json();
 
         if (!response.ok) {
@@ -213,7 +214,7 @@ function App() {
     setWeightSaving(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/weight", {
+      const response = await fetch(`${API_BASE_URL}/weight`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 import { Quote, Sparkles } from "lucide-react";
 import "./dashboard.css";
+import API_BASE_URL from "../../config/api";
 
-
-const API_URL = "http://localhost:5000/api/quotes/daily";
+const API_URL =`${API_BASE_URL}/quotes/daily`;
 const CACHE_KEY = "ascend-daily-quote";
 
 // Images are served from Vite's public directory.

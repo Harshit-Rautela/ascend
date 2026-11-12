@@ -32,8 +32,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import "./Habits.css";
+import API_BASE_URL from "../../config/api";
 
-const API_URL = "http://localhost:5000/api/habits";
+const API_URL = `${API_BASE_URL}/habits`;
 
 const HABIT_ICONS = {
   target: Target,

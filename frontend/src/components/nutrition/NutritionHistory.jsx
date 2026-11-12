@@ -22,8 +22,10 @@ import {
     Area,
     ReferenceLine
 } from "recharts";
+import API_BASE_URL from "../../config/api";
 
-const API_URL = "http://localhost:5000/api/nutrition";
+
+const API_URL = `${API_BASE_URL}/nutrition`;
 
 const MACRO_COLORS = ["#c6f36a", "#72b8ff", "#ffad73"];
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snacks"];

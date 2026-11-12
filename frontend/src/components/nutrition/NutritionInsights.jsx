@@ -29,8 +29,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import "./nutrition.css";
+import API_BASE_URL from "../../config/api";
 
-const API_URL = "http://localhost:5000/api/nutrition/insights";
+
+const API_URL = `${API_BASE_URL}/nutrition/insights`;
 
 const suggestions = [
     {

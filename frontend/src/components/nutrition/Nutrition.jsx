@@ -24,8 +24,7 @@ import NutritionHistory from "./NutritionHistory";
 
 import NutritionInsights from "./NutritionInsights";
 import "./nutrition.css";
-
-
+import API_BASE_URL from "../../config/api";
 
 const initialMeals = [
 
@@ -135,7 +134,7 @@ function Nutrition() {
 
                 const response = await fetch(
 
-                    `http://localhost:5000/api/nutrition?date=${date}`
+                    `${API_BASE_URL}/nutrition?date=${date}`
 
                 );
 
@@ -215,7 +214,7 @@ function Nutrition() {
 
         try {
             const response = await fetch(
-                `http://localhost:5000/api/nutrition/micronutrients?date=${date}`
+                `${API_BASE_URL}/nutrition/micronutrients?date=${date}`
             );
 
             // const data = await response.json();
@@ -393,7 +392,7 @@ function Nutrition() {
 
             const response = await fetch(
 
-                `http://localhost:5000/api/nutrition/${foodId}`,
+                `${API_BASE_URL}/nutrition/${foodId}`,
 
                 {
 
@@ -506,7 +505,7 @@ function Nutrition() {
 
             const response = await fetch(
 
-                "http://localhost:5000/api/nutrition/analyze",
+                `${API_BASE_URL}/nutrition/analyze`,
 
                 {
 
@@ -873,7 +872,7 @@ function Nutrition() {
 
                 const response = await fetch(
 
-                    "http://localhost:5000/api/nutrition",
+                    `${API_BASE_URL}/nutrition`,
 
                     {
 

@@ -18,6 +18,8 @@ import {
     Tooltip,
     ReferenceLine,
 } from "recharts";
+import API_BASE_URL from "../../config/api";
+
 
 function getToday() {
     const now = new Date();
@@ -258,7 +260,7 @@ export default function SleepHistory() {
 
             try {
                 const response = await fetch(
-                    `http://localhost:5000/api/sleep?date=${selectedDate}`,
+                    `${API_BASE_URL}/sleep?date=${selectedDate}`,
                     { signal: controller.signal }
                 );
 
@@ -294,7 +296,7 @@ export default function SleepHistory() {
 
             try {
                 const response = await fetch(
-                    `http://localhost:5000/api/sleep/weekly?startDate=${weekStart}`,
+                    `${API_BASE_URL}/sleep/weekly?startDate=${weekStart}`,
                     {
                         signal: controller.signal,
                     }
@@ -334,7 +336,7 @@ export default function SleepHistory() {
 
             try {
                 const response = await fetch(
-                    `http://localhost:5000/api/sleep/monthly?month=${selectedMonth}`,
+                    `${API_BASE_URL}/sleep/monthly?month=${selectedMonth}`,
                     {
                         signal: controller.signal,
                     }

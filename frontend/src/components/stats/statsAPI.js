@@ -1,13 +1,12 @@
-
-const API_BASE_URL = "http://localhost:5000/api";
+import API_BASE_URL from "../../config/api.js";
 
 async function request(path, options = {}) {
     const response = await fetch(`${API_BASE_URL}${path}`, {
+        ...options,
         headers: {
             "Content-Type": "application/json",
             ...options.headers,
         },
-        ...options,
     });
 
     const data = await response.json().catch(() => ({}));
@@ -114,26 +113,26 @@ export function deleteBiomarkerResult(resultId) {
 // Analyze a PDF medical report.
 // FormData is intentional: do not manually set Content-Type.
 export async function analyzeMedicalReport(file) {
-  const formData = new FormData();
-  formData.append("report", file);
+    const formData = new FormData();
+    formData.append("report", file);
 
-  const response = await fetch(
-    `${API_BASE_URL}/stats/reports/analyze`,
-    {
-      method: "POST",
-      body: formData,
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok || !data.success) {
-    throw new Error(
-      data.error || "Unable to analyze medical report."
+    const response = await fetch(
+        `${API_BASE_URL}/stats/reports/analyze`,
+        {
+            method: "POST",
+            body: formData,
+        }
     );
-  }
 
-  return data;
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+        throw new Error(
+            data.error || "Unable to analyze medical report."
+        );
+    }
+
+    return data;
 }
 
 // Save one user-confirmed extracted biomarker result.

@@ -8,9 +8,10 @@ import {
   ChevronDown,
   Check,
 } from "lucide-react";
+import API_BASE_URL from "../../config/api";
 
-const EXERCISE_API = "http://localhost:5000/api/exercise";
-const PLAN_API = "http://localhost:5000/api/training-plans";
+const EXERCISE_API = `${API_BASE_URL}/exercise`;
+const PLAN_API = `${API_BASE_URL}/training-plans`;
 
 const EMPTY_EXERCISE = {
   exerciseId: "",

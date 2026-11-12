@@ -29,6 +29,8 @@ import {
 import "./sleep.css"
 import SleepHistory from "./SleepHistory.jsx";
 import SleepInsights from "./SleepInsights.jsx";
+import API_BASE_URL from "../../config/api";
+
 const SLEEP_GOAL = 8;
 
 function formatDuration(minutes) {
@@ -213,7 +215,7 @@ function Sleep() {
                 setLoadError("");
 
                 const response = await fetch(
-                    "http://localhost:5000/api/sleep"
+                    `${API_BASE_URL}/sleep`
                 );
 
                 const result = await response.json();
@@ -291,8 +293,8 @@ function Sleep() {
 
             const response = await fetch(
                 isEditing
-                    ? `http://localhost:5000/api/sleep/${editingEntry.id}`
-                    : "http://localhost:5000/api/sleep",
+                    ? `${API_BASE_URL}/sleep/${editingEntry.id}`
+                    : `${API_BASE_URL}/sleep`,
                 {
                     method: isEditing ? "PUT" : "POST",
                     headers: {
@@ -348,7 +350,7 @@ function Sleep() {
             setIsDeleting(true);
 
             const response = await fetch(
-                `http://localhost:5000/api/sleep/${id}`,
+                `${API_BASE_URL}/sleep/${id}`,
                 {
                     method: "DELETE",
                 }
