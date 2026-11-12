@@ -1,26 +1,39 @@
 
-/**
+/*
  * ASCEND — NUTRITION AI SERVICE
  *
- * Uses Gemini function calling to retrieve approved nutrition data.
- * All nutrition calculations and database access remain in backend services.
+ * Gemini function-calling orchestration.
+ *
+ * Responsibilities:
+ * 1. Understand nutrition questions.
+ * 2. Select approved backend analytics tools.
+ * 3. Execute tools through the nutrition tool executor.
+ * 4. Return grounded natural-language responses.
+ *
+ * All calculations and database access remain in backend services.
  */
 
 import { GoogleGenAI } from "@google/genai";
 
+import { nutritionTools } from "./nutrition/ai/nutritionTools.js";
+
+// import {
+//     executeNutritionTool,
+// } from "./nutrition/ai/nutritionToolExecutor.js";
 import {
-    getNutritionAnalytics,
-    getMacroAnalysis,
-    getMicronutrientAnalysis,
+    executeNutritionTool as executeModularNutritionTool,
+} from "./nutrition/ai/nutritionToolExecutor.js";
+
+// Preserve existing food-history functionality until it is
+// migrated into the modular analytics architecture.
+import {
     getFoodHistory,
-    getMealAnalysis,
 } from "./nutritionAnalyticsService.js";
+
 
 /* =========================================
    GEMINI CLIENT
 ========================================= */
-
-
 
 function getGeminiClient() {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -38,15 +51,17 @@ function getGeminiClient() {
 ========================================= */
 
 const DEFAULT_GEMINI_MODELS = [
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.7-flash",
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
 ];
 
 function getGeminiModels() {
     const configuredModels = process.env.GEMINI_MODELS
         ?.split(",")
-        .map((model) => model.trim())
+        .map(model => model.trim())
         .filter(Boolean);
 
     return configuredModels?.length
@@ -63,12 +78,10 @@ function isRetryableGeminiError(error) {
 
     const message = String(error.message || "").toLowerCase();
 
-    // Temporary capacity, rate-limit, and server errors.
     if ([408, 429, 500, 502, 503, 504].includes(status)) {
         return true;
     }
 
-    // Some SDK errors expose Google API error codes in the message.
     if (
         message.includes("resource_exhausted") ||
         message.includes("too many requests") ||
@@ -84,7 +97,6 @@ function isRetryableGeminiError(error) {
         return true;
     }
 
-    // An unavailable model can be skipped in favor of another.
     if (status === 404) {
         return true;
     }
@@ -94,6 +106,7 @@ function isRetryableGeminiError(error) {
 
 async function generateWithGeminiFallback(ai, request) {
     const models = getGeminiModels();
+
     let lastError;
 
     for (const model of models) {
@@ -108,6 +121,7 @@ async function generateWithGeminiFallback(ai, request) {
             console.log(`[Nutrition AI] Model succeeded: ${model}`);
 
             return response;
+
         } catch (error) {
             lastError = error;
 
@@ -132,7 +146,8 @@ async function generateWithGeminiFallback(ai, request) {
     console.error("[Nutrition AI] All configured Gemini models failed.");
 
     throw new Error(
-        `All Gemini models are currently unavailable. Last error: ${lastError?.message || "Unknown Gemini error"
+        `All Gemini models are currently unavailable. Last error: ${
+            lastError?.message || "Unknown Gemini error"
         }`
     );
 }
@@ -151,6 +166,42 @@ function getCurrentDate() {
     }).format(new Date());
 }
 
+
+/* =========================================
+   LEGACY FOOD HISTORY TOOL
+========================================= */
+
+const foodHistoryTool = {
+    name: "get_food_history",
+
+    description:
+        "Retrieve individual food records, including food name, meal type, calories, protein, carbs, and fat. Use for specific dates or food history. Maximum range is 60 days.",
+
+    parametersJsonSchema: {
+        type: "object",
+
+        properties: {
+            startDate: {
+                type: "string",
+                description: "Optional start date in YYYY-MM-DD format.",
+            },
+
+            endDate: {
+                type: "string",
+                description: "Optional end date in YYYY-MM-DD format.",
+            },
+        },
+    },
+};
+
+const availableNutritionTools = [
+    ...nutritionTools,
+    {
+        functionDeclarations: [foodHistoryTool],
+    },
+];
+
+
 /* =========================================
    SYSTEM INSTRUCTION
 ========================================= */
@@ -164,18 +215,22 @@ You are Ascend's personal Nutrition AI assistant.
 CURRENT DATE: ${currentDate}
 TIMEZONE: Asia/Kolkata (IST)
 
+
 DATE HANDLING RULES:
+
 1. Resolve "today" using the current date above.
 2. Resolve "yesterday" as exactly one calendar day before the current date.
-3. Resolve "last week", "last month", and other relative date expressions using the current date.
+3. Resolve relative date expressions using the current date.
 4. Always use YYYY-MM-DD when requesting dates from backend tools.
 5. Never invent a date or assume the current year.
 6. If a date expression is ambiguous, ask the user to clarify.
 7. If no date range is specified, use the backend default of the latest 30 days.
 
+
 NUTRITION DATA RULES:
+
 1. Use backend tools whenever a question requires personal nutrition data.
-2. Never invent food records, calorie values, macronutrients, or micronutrient measurements.
+2. Never invent food records, calories, macros, or micronutrient measurements.
 3. Never generate SQL or access the database directly.
 4. Use only results returned by approved tools.
 5. Mention sample sizes and data coverage when discussing averages or patterns.
@@ -186,168 +241,121 @@ NUTRITION DATA RULES:
 10. Do not present configured nutrient targets as personalized medical recommendations.
 11. Macro goal percentages are unavailable unless the backend explicitly provides configured macro goals.
 12. When a nutrient has no configured daily target, do not calculate or invent a target percentage.
-13. Clearly distinguish nutrients obtained from food and supplements when relevant.
+13. Distinguish nutrients obtained from food and supplements when relevant.
 14. Be transparent when data is insufficient.
-15. Keep answers conversational, structured, and easy to understand.
+15. Do not call a nutrient below its configured target a clinical deficiency.
+16. Do not describe intake above a configured target as toxic or harmful without appropriate evidence.
+17. Explain that micronutrient trend direction describes recorded intake, not necessarily nutritional improvement.
+18. Keep answers conversational, structured, and easy to understand.
+
 
 AVAILABLE TOOLS:
-- get_nutrition_analytics: period averages, totals, comparisons, and data coverage.
-- get_macro_analysis: calorie, protein, carbohydrate, and fat analysis.
-- get_micronutrient_analysis: micronutrient intake and configured daily targets.
-- get_food_history: individual food records within a requested date range.
-- get_meal_analysis: breakfast, lunch, dinner, and snack patterns.
+
+- get_nutrition_analytics:
+  Overall nutrition totals, daily averages, period comparisons, and coverage.
+
+- get_macro_analysis:
+  Calories, protein, carbohydrates, and fat analysis.
+
+- get_micronutrient_analysis:
+  Vitamin and mineral intake, food and supplement contributions, and configured targets.
+
+- get_micronutrient_trends:
+  Daily and weekly micronutrient trends, intake direction, and tracking coverage.
+
+- get_food_frequency:
+  Frequently logged foods and food logging patterns.
+
+- get_food_contribution:
+  Food contributions to calorie and macronutrient totals.
+
+- get_meal_analysis:
+  Breakfast, lunch, dinner, and snack patterns.
+
+- get_nutrition_trends:
+  Overall daily and weekly nutrition trends.
+
+- get_nutrition_consistency:
+  Food logging consistency and tracking streaks.
+
+- get_nutrition_goal_analysis:
+  Configured nutrient target analysis.
+
+- get_food_history:
+  Individual food records within a requested date range.
+
 
 TOOL SELECTION:
+
 1. Use nutrition analytics for overall trends and period comparisons.
-2. Use macro analysis for specific calorie and macronutrient questions.
-3. Use micronutrient analysis for vitamins, minerals, and configured nutrient targets.
-4. Use food history for questions about specific foods or individual dates.
-5. Use meal analysis for meal-wise patterns.
-6. You may call multiple tools when a question requires multiple perspectives.
-7. Never claim a tool was executed if it was not.
+2. Use macro analysis for calorie and macronutrient questions.
+3. Use micronutrient analysis for vitamins, minerals, and configured targets.
+4. Use micronutrient trends for changes in vitamin and mineral intake over time.
+5. Use food frequency for frequently logged foods.
+6. Use food contribution for food-level calorie and macro contributions.
+7. Use food history for specific foods or individual dates.
+8. Use meal analysis for meal-wise patterns.
+9. Use nutrition trends for overall daily and weekly patterns.
+10. Use consistency analysis for tracking habits.
+11. Use goal analysis for configured nutrient targets.
+12. You may call multiple tools when a question requires multiple perspectives.
+13. Never claim a tool was executed if it was not.
 `;
 }
 
-/* =========================================
-   GEMINI TOOL DECLARATIONS
-========================================= */
-
-const nutritionTools = [
-    {
-        functionDeclarations: [
-            {
-                name: "get_nutrition_analytics",
-                description:
-                    "Retrieve nutrition totals, daily averages, period comparisons, and data coverage. Defaults to the latest 30 days. Use for overall nutrition trends and comparisons.",
-
-                parametersJsonSchema: {
-                    type: "object",
-                    properties: {
-                        startDate: {
-                            type: "string",
-                            description: "Optional start date in YYYY-MM-DD format.",
-                        },
-                        endDate: {
-                            type: "string",
-                            description: "Optional end date in YYYY-MM-DD format.",
-                        },
-                    },
-                },
-            },
-
-            {
-                name: "get_macro_analysis",
-                description:
-                    "Retrieve calorie, protein, carbohydrate, and fat totals and daily averages for a date range. Defaults to the latest 30 days. Macro goal percentages are not currently available.",
-
-                parametersJsonSchema: {
-                    type: "object",
-                    properties: {
-                        startDate: {
-                            type: "string",
-                            description: "Optional start date in YYYY-MM-DD format.",
-                        },
-                        endDate: {
-                            type: "string",
-                            description: "Optional end date in YYYY-MM-DD format.",
-                        },
-                    },
-                },
-            },
-
-            {
-                name: "get_micronutrient_analysis",
-                description:
-                    "Retrieve micronutrient intake from food and supplements, including configured daily targets and target percentages where available.",
-
-                parametersJsonSchema: {
-                    type: "object",
-                    properties: {
-                        startDate: {
-                            type: "string",
-                            description: "Optional start date in YYYY-MM-DD format.",
-                        },
-                        endDate: {
-                            type: "string",
-                            description: "Optional end date in YYYY-MM-DD format.",
-                        },
-                    },
-                },
-            },
-
-            {
-                name: "get_food_history",
-                description:
-                    "Retrieve individual food records, including food name, meal type, calories, protein, carbs, and fat. Use for specific dates or food history. Maximum range is 60 days.",
-
-                parametersJsonSchema: {
-                    type: "object",
-                    properties: {
-                        startDate: {
-                            type: "string",
-                            description: "Optional start date in YYYY-MM-DD format.",
-                        },
-                        endDate: {
-                            type: "string",
-                            description: "Optional end date in YYYY-MM-DD format.",
-                        },
-                    },
-                },
-            },
-
-            {
-                name: "get_meal_analysis",
-                description:
-                    "Analyze breakfast, lunch, dinner, and snack patterns, including their recorded entries and macro totals.",
-
-                parametersJsonSchema: {
-                    type: "object",
-                    properties: {
-                        startDate: {
-                            type: "string",
-                            description: "Optional start date in YYYY-MM-DD format.",
-                        },
-                        endDate: {
-                            type: "string",
-                            description: "Optional end date in YYYY-MM-DD format.",
-                        },
-                    },
-                },
-            },
-        ],
-    },
-];
 
 /* =========================================
    TOOL EXECUTION
 ========================================= */
 
 async function executeNutritionTool(name, args = {}) {
-    const options = {
-        startDate: args.startDate,
-        endDate: args.endDate,
-    };
-
-    switch (name) {
-        case "get_nutrition_analytics":
-            return await getNutritionAnalytics(options);
-
-        case "get_macro_analysis":
-            return await getMacroAnalysis(options);
-
-        case "get_micronutrient_analysis":
-            return await getMicronutrientAnalysis(options);
-
-        case "get_food_history":
-            return await getFoodHistory(options);
-
-        case "get_meal_analysis":
-            return await getMealAnalysis(options);
-
-        default:
-            throw new Error(`Unsupported nutrition tool: ${name}`);
+    if (name === "get_food_history") {
+        return await getFoodHistory({
+            startDate: args.startDate,
+            endDate: args.endDate,
+        });
     }
+
+    return await executeModularNutritionTool(name, args);
 }
+
+async function executeNutritionToolFromModule(name, args) {
+    return executeNutritionToolModule(name, args);
+}
+
+
+/* =========================================
+   TOOL RESPONSE BUILDER
+========================================= */
+
+function createToolResponse(call, result) {
+    return {
+        functionResponse: {
+            id: call.id,
+            name: call.name,
+
+            response: {
+                success: true,
+                data: result,
+            },
+        },
+    };
+}
+
+function createToolErrorResponse(call, error) {
+    return {
+        functionResponse: {
+            id: call.id,
+            name: call.name,
+
+            response: {
+                success: false,
+                error: error.message || "Tool execution failed.",
+            },
+        },
+    };
+}
+
 
 /* =========================================
    NUTRITION AI
@@ -373,15 +381,13 @@ export async function generateNutritionInsight(message) {
     }
 
     const ai = getGeminiClient();
-    // const model = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
     const config = {
         systemInstruction: getSystemInstruction(),
-        tools: nutritionTools,
-        // temperature: 0.2,
+        tools: availableNutritionTools,
     };
 
-    // Keep the complete tool-calling conversation.
+    // Preserve the complete function-calling conversation.
     const contents = [
         {
             role: "user",
@@ -398,6 +404,8 @@ export async function generateNutritionInsight(message) {
         config,
     });
 
+    const executedSources = new Set();
+
     for (let round = 1; round <= MAX_TOOL_ROUNDS; round++) {
         const candidateContent = response.candidates?.[0]?.content;
         const functionCalls = response.functionCalls || [];
@@ -405,7 +413,7 @@ export async function generateNutritionInsight(message) {
         console.log(`[Nutrition AI] Response round: ${round}`);
         console.log("[Nutrition AI] Function calls:", functionCalls.length);
 
-        // No more tools requested: Gemini should now provide its answer.
+        // Gemini has finished requesting tools.
         if (functionCalls.length === 0) {
             const answer = response.text?.trim();
 
@@ -414,14 +422,7 @@ export async function generateNutritionInsight(message) {
 
                 return {
                     answer,
-                    sources: [
-                        ...new Set(
-                            contents
-                                .flatMap((item) => item.parts || [])
-                                .map((part) => part.functionResponse?.name)
-                                .filter(Boolean)
-                        ),
-                    ],
+                    sources: [...executedSources],
                 };
             }
 
@@ -431,8 +432,8 @@ export async function generateNutritionInsight(message) {
 
             return {
                 answer:
-                    "I received an incomplete response while analyzing your nutrition data. Please try asking your question again.",
-                sources: [],
+                    "I received an incomplete response while analyzing your nutrition data. Please try again.",
+                sources: [...executedSources],
                 incomplete: true,
             };
         }
@@ -445,17 +446,17 @@ export async function generateNutritionInsight(message) {
             return {
                 answer:
                     "I couldn't complete the nutrition data analysis. Please try again.",
-                sources: [],
+                sources: [...executedSources],
                 incomplete: true,
             };
         }
 
-        // Preserve Gemini's model response, including its function calls.
+        // Preserve Gemini's original response and function-call metadata.
         contents.push(candidateContent);
 
-        // Execute the requested tools on our backend.
+        // Execute all requested tools.
         const functionResponseParts = await Promise.all(
-            functionCalls.map(async (call) => {
+            functionCalls.map(async call => {
                 console.log(
                     `[Nutrition AI] Executing tool: ${call.name}`
                 );
@@ -466,41 +467,27 @@ export async function generateNutritionInsight(message) {
                         call.args || {}
                     );
 
+                    executedSources.add(call.name);
+
                     console.log(
                         `[Nutrition AI] Tool completed: ${call.name}`
                     );
 
-                    return {
-                        functionResponse: {
-                            id: call.id,
-                            name: call.name,
-                            response: {
-                                success: true,
-                                data: result,
-                            },
-                        },
-                    };
+                    return createToolResponse(call, result);
+
                 } catch (error) {
                     console.error(
                         `[Nutrition AI] Tool failed: ${call.name}`,
                         error.message
                     );
 
-                    return {
-                        functionResponse: {
-                            id: call.id,
-                            name: call.name,
-                            response: {
-                                success: true,
-                                data: result,
-                            },
-                        },
-                    };
+                    // Correctly report failure instead of success.
+                    return createToolErrorResponse(call, error);
                 }
             })
         );
 
-        // Send all tool results back to Gemini.
+        // Send tool results back to Gemini.
         contents.push({
             role: "user",
             parts: functionResponseParts,
@@ -516,13 +503,12 @@ export async function generateNutritionInsight(message) {
         });
     }
 
-    // Prevent unlimited tool-calling loops.
     console.warn("[Nutrition AI] Maximum tool rounds reached.");
 
     return {
         answer:
-            "I was able to retrieve some nutrition information, but couldn't complete the full analysis. Please try a more specific question.",
-        sources: [],
+            "I retrieved some nutrition information, but couldn't complete the full analysis. Please try a more specific question.",
+        sources: [...executedSources],
         incomplete: true,
     };
 }

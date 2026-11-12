@@ -1,7 +1,9 @@
 
 import { Router } from "express";
 import prisma from "../prisma.js";
-
+import { CATEGORY_DETAILS } from "../utils/biomarkerCategories.js";
+import { uploadSinglePdf } from "../middleware/pdfUpload.js";
+import { analyzeMedicalReport } from "../services/medicalReportAI.js";
 const router = Router();
 
 const ALLOWED_MEASUREMENTS = {
@@ -222,5 +224,205 @@ router.get("/body/history", async (req, res) => {
     });
   }
 });
+
+router.get("/overview", async (req, res) => {
+  try {
+    const biomarkers = await prisma.biomarker.findMany({
+      orderBy: {
+        name: "asc",
+      },
+      select: {
+        id: true,
+        key: true,
+        name: true,
+        category: true,
+        dataType: true,
+        defaultUnit: true,
+        description: true,
+
+        results: {
+          orderBy: [
+            { measuredAt: "desc" },
+            { createdAt: "desc" },
+            { id: "desc" },
+          ],
+          take: 1,
+          select: {
+            id: true,
+            valueNumeric: true,
+            valueText: true,
+            unit: true,
+            measuredAt: true,
+            referenceLow: true,
+            referenceHigh: true,
+            referenceRange: true,
+            labFlag: true,
+            source: true,
+            sourceName: true,
+            notes: true,
+          },
+        },
+      },
+    });
+
+    const categories = Object.entries(CATEGORY_DETAILS)
+      .sort(([, a], [, b]) => a.sortOrder - b.sortOrder)
+      .map(([category, details]) => ({
+        key: category,
+        label: details.label,
+        description: details.description,
+
+        biomarkers: biomarkers
+          .filter((biomarker) => biomarker.category === category)
+          .map(({ results, ...biomarker }) => ({
+            ...biomarker,
+            latestResult: results[0] ?? null,
+          })),
+      }));
+
+    return res.status(200).json({
+      success: true,
+      categories,
+    });
+  } catch (error) {
+    console.error("Error fetching Stats overview:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch Stats overview.",
+    });
+  }
+});
+
+
+router.post(
+  "/reports/analyze",
+  uploadSinglePdf,
+  async (req, res) => {
+    try {
+      // 1. Ensure a PDF was uploaded
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: "Please upload a PDF report.",
+        });
+      }
+
+      const pdfBuffer = req.file.buffer;
+
+      // 2. Verify actual PDF signature
+      const pdfSignature = pdfBuffer
+        .subarray(0, 5)
+        .toString("ascii");
+
+      if (pdfSignature !== "%PDF-") {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid PDF file.",
+        });
+      }
+
+      // 3. Fetch the biomarker catalog from the database
+      const biomarkers = await prisma.biomarker.findMany({
+        select: {
+          id: true,
+          key: true,
+          name: true,
+          category: true,
+          dataType: true,
+          defaultUnit: true,
+        },
+      });
+
+      // 4. Send PDF to Gemini for extraction
+      const extraction = await analyzeMedicalReport(
+        pdfBuffer,
+        biomarkers
+      );
+
+      // 5. Match extracted measurements against our catalog
+      const biomarkerByKey = new Map(
+        biomarkers.map((biomarker) => [
+          biomarker.key,
+          biomarker,
+        ])
+      );
+
+      const measurements = extraction.measurements.map((item) => {
+        const matchedBiomarker = biomarkerByKey.get(
+          item.biomarkerKey
+        );
+
+        // Reject invalid or incompatible catalog matches
+        if (
+          !matchedBiomarker ||
+          matchedBiomarker.dataType !== item.valueType
+        ) {
+          return {
+            ...item,
+            biomarkerKey: null,
+            biomarkerId: null,
+            biomarkerName: null,
+            category: null,
+            matched: false,
+          };
+        }
+
+        return {
+          ...item,
+          biomarkerId: matchedBiomarker.id,
+          biomarkerName: matchedBiomarker.name,
+          category: matchedBiomarker.category,
+          matched: true,
+        };
+      });
+
+      // 6. Return extracted data for frontend review
+      return res.status(200).json({
+        success: true,
+
+        report: {
+          reportType: extraction.reportType,
+          reportDate: extraction.reportDate,
+        },
+
+        measurements,
+
+        unmatchedItems: extraction.unmatchedItems,
+
+        summary: {
+          totalMeasurements: measurements.length,
+
+          matchedMeasurements: measurements.filter(
+            (item) => item.matched
+          ).length,
+
+          unmatchedMeasurements:
+            measurements.filter((item) => !item.matched).length +
+            extraction.unmatchedItems.length,
+        },
+      });
+
+    } catch (error) {
+      // Do not log the PDF, its buffer, or extracted medical data.
+      console.error(
+        "Medical report analysis failed:",
+        error.message
+      );
+
+      return res.status(502).json({
+        success: false,
+        error: "Unable to analyze the medical report. Please try again.",
+      });
+
+    } finally {
+      // Release our reference to the uploaded PDF buffer.
+      if (req.file) {
+        req.file.buffer = null;
+      }
+    }
+  }
+);
+
 
 export default router;

@@ -17,6 +17,7 @@ import mediaRoutes from "./routes/mediaRoutes.js";
 import sleepRouter from "./routes/sleep.js";
 import sleepInsightsRoutes from "./routes/sleepInsightsRoutes.js";
 import nutritionInsightsRoutes from "./routes/nutritionInsightsRoutes.js";
+import biomarkerRoutes from "./routes/biomarkers.js";
 
 
 
@@ -42,6 +43,7 @@ app.use("/api/steps", stepRoutes);
 app.use("/api/sleep", sleepRouter);
 app.use("/api/sleep/insights", sleepInsightsRoutes);
 app.use("/api/nutrition/insights", nutritionInsightsRoutes);
+app.use("/api/biomarkers", biomarkerRoutes);
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({

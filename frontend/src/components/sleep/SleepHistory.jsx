@@ -71,6 +71,59 @@ function formatLongDate(dateString) {
         }
     );
 }
+
+function CircularMetricRing({ value, color, label, suffix = "" }) {
+    const radius = 43;
+    const circumference = 2 * Math.PI * radius;
+
+    const hasValue = value != null && Number.isFinite(Number(value));
+    const numericValue = hasValue ? Number(value) : 0;
+    const progress = Math.min(100, Math.max(0, numericValue));
+
+    const offset =
+        circumference - (progress / 100) * circumference;
+
+    return (
+        <div
+            className="sleep-metric-ring"
+            role="img"
+            aria-label={
+                hasValue
+                    ? `${label}: ${numericValue}${suffix}`
+                    : `${label}: no data`
+            }
+        >
+            <svg viewBox="0 0 110 110" aria-hidden="true">
+                <circle
+                    className="sleep-metric-ring-track"
+                    cx="55"
+                    cy="55"
+                    r={radius}
+                />
+
+                {hasValue && (
+                    <circle
+                        className="sleep-metric-ring-progress"
+                        cx="55"
+                        cy="55"
+                        r={radius}
+                        stroke={color}
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
+                    />
+                )}
+            </svg>
+
+            <div className="sleep-metric-ring-content">
+                <strong>
+                    {hasValue ? numericValue : "--"}
+                    {hasValue && suffix}
+                </strong>
+                <span>{label}</span>
+            </div>
+        </div>
+    );
+}
 function RecoveryMetricChart({
     title,
     data,
@@ -79,6 +132,8 @@ function RecoveryMetricChart({
     color,
 }) {
     const hasData = data.some((day) => day[dataKey] != null);
+
+
 
     return (
         <div className="sleep-recovery-trend-card">
@@ -1009,15 +1064,18 @@ export default function SleepHistory() {
                     </div>
                 ) : (
                     <div className="sleep-recovery-grid">
-                        <div className="sleep-recovery-card">
+                        {/* Sleep Score */}
+                        <div className="sleep-recovery-card sleep-recovery-card--ring">
                             <span>Sleep score</span>
-                            <strong>
-                                {selectedEntry.sleepScore != null
-                                    ? `${selectedEntry.sleepScore}/100`
-                                    : "--"}
-                            </strong>
+
+                            <CircularMetricRing
+                                value={selectedEntry.sleepScore}
+                                color="#35bdf2"
+                                label="out of 100"
+                            />
                         </div>
 
+                        {/* Heart Rate */}
                         <div className="sleep-recovery-card">
                             <span>Heart rate</span>
                             <strong>
@@ -1027,6 +1085,7 @@ export default function SleepHistory() {
                             </strong>
                         </div>
 
+                        {/* HRV */}
                         <div className="sleep-recovery-card">
                             <span>HRV</span>
                             <strong>
@@ -1036,13 +1095,16 @@ export default function SleepHistory() {
                             </strong>
                         </div>
 
-                        <div className="sleep-recovery-card">
+                        {/* Energy */}
+                        <div className="sleep-recovery-card sleep-recovery-card--ring">
                             <span>Energy</span>
-                            <strong>
-                                {selectedEntry.energy != null
-                                    ? `${selectedEntry.energy}%`
-                                    : "--"}
-                            </strong>
+
+                            <CircularMetricRing
+                                value={selectedEntry.energy}
+                                color="#55d6a2"
+                                label="energy level"
+                                suffix="%"
+                            />
                         </div>
                     </div>
                 )}

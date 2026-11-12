@@ -14,6 +14,7 @@ import {
     LayoutDashboard,
     CalendarDays,
     ChartNoAxesCombined,
+    Pencil, Trash2
 } from "lucide-react";
 import {
     ResponsiveContainer,
@@ -85,6 +86,9 @@ function Sleep() {
     const [loadError, setLoadError] = useState("");
 
     const [showForm, setShowForm] = useState(false);
+    const [editingEntry, setEditingEntry] = useState(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const [sleepDate, setSleepDate] = useState(today);
     const [bedtime, setBedtime] = useState("22:30");
@@ -116,6 +120,54 @@ function Sleep() {
     const todayEntry = entries.find(
         (entry) => entry.sleepDate === today
     );
+    function resetSleepForm() {
+        setSleepDate(today);
+        setBedtime("22:30");
+        setWakeTime("06:30");
+        setSleepQuality(4);
+        setNotes("");
+        setSleepScore("");
+        setAwakeMinutes("");
+        setLightSleepMinutes("");
+        setDeepSleepMinutes("");
+        setHeartRate("");
+        setHrv("");
+        setEnergy("");
+        setError("");
+        setEditingEntry(null);
+    }
+
+    function openCreateForm() {
+        resetSleepForm();
+        setShowForm(true);
+    }
+
+    function openEditForm(entry) {
+        setEditingEntry(entry);
+
+        setSleepDate(entry.sleepDate.slice(0, 10));
+        setBedtime(entry.bedtime);
+        setWakeTime(entry.wakeTime);
+        setSleepQuality(entry.quality ?? 4);
+
+        setNotes(entry.notes ?? "");
+        setSleepScore(entry.sleepScore ?? "");
+        setAwakeMinutes(entry.awakeMinutes ?? "");
+        setLightSleepMinutes(entry.lightSleepMinutes ?? "");
+        setDeepSleepMinutes(entry.deepSleepMinutes ?? "");
+        setHeartRate(entry.heartRate ?? "");
+        setHrv(entry.hrv ?? "");
+        setEnergy(entry.energy ?? "");
+
+        setError("");
+        setShowForm(true);
+    }
+
+    function closeSleepForm() {
+        setShowForm(false);
+        setEditingEntry(null);
+        setError("");
+    }
 
     const latestEntry = entries[0];
 
@@ -211,32 +263,42 @@ function Sleep() {
             return;
         }
 
+        const payload = {
+            sleepDate,
+            bedtime,
+            wakeTime,
+            quality: sleepQuality,
+
+            sleepScore: sleepScore === "" ? null : Number(sleepScore),
+
+            awakeMinutes: awakeMinutes === "" ? null : Number(awakeMinutes),
+            lightSleepMinutes:
+                lightSleepMinutes === "" ? null : Number(lightSleepMinutes),
+            deepSleepMinutes:
+                deepSleepMinutes === "" ? null : Number(deepSleepMinutes),
+
+            heartRate: heartRate === "" ? null : Number(heartRate),
+            hrv: hrv === "" ? null : Number(hrv),
+            energy: energy === "" ? null : Number(energy),
+
+            notes: notes.trim(),
+        };
+
         try {
+            setIsSaving(true);
+
+            const isEditing = Boolean(editingEntry);
+
             const response = await fetch(
-                "http://localhost:5000/api/sleep",
+                isEditing
+                    ? `http://localhost:5000/api/sleep/${editingEntry.id}`
+                    : "http://localhost:5000/api/sleep",
                 {
-                    method: "POST",
+                    method: isEditing ? "PUT" : "POST",
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify({
-                        sleepDate,
-                        bedtime,
-                        wakeTime,
-                        quality: sleepQuality,
-
-                        sleepScore: sleepScore === "" ? null : Number(sleepScore),
-
-                        awakeMinutes: awakeMinutes === "" ? null : Number(awakeMinutes),
-                        lightSleepMinutes: lightSleepMinutes === "" ? null : Number(lightSleepMinutes),
-                        deepSleepMinutes: deepSleepMinutes === "" ? null : Number(deepSleepMinutes),
-
-                        heartRate: heartRate === "" ? null : Number(heartRate),
-                        hrv: hrv === "" ? null : Number(hrv),
-                        energy: energy === "" ? null : Number(energy),
-
-                        notes: notes.trim(),
-                    }),
+                    body: JSON.stringify(payload),
                 }
             );
 
@@ -244,7 +306,8 @@ function Sleep() {
 
             if (!response.ok) {
                 throw new Error(
-                    result.error || "Failed to save sleep record."
+                    result.error ||
+                    `Failed to ${isEditing ? "update" : "save"} sleep record.`
                 );
             }
 
@@ -264,25 +327,51 @@ function Sleep() {
                 )
             );
 
-            setShowForm(false);
-            setNotes("");
-            setSleepScore("");
-            setAwakeMinutes("");
-            setLightSleepMinutes("");
-            setDeepSleepMinutes("");
-            setHeartRate("");
-            setHrv("");
-            setEnergy("");
+            closeSleepForm();
+            resetSleepForm();
 
         } catch (error) {
             console.error("Error saving sleep record:", error);
             setError(error.message || "Could not save sleep record.");
+        } finally {
+            setIsSaving(false);
         }
     }
-    function deleteEntry(id) {
-        setEntries((current) =>
-            current.filter((entry) => entry.id !== id)
+    async function deleteEntry(id) {
+        const confirmed = window.confirm(
+            "Are you sure you want to delete today's sleep record?"
         );
+
+        if (!confirmed) return;
+
+        try {
+            setIsDeleting(true);
+
+            const response = await fetch(
+                `http://localhost:5000/api/sleep/${id}`,
+                {
+                    method: "DELETE",
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result.error || "Failed to delete sleep record."
+                );
+            }
+
+            setEntries((current) =>
+                current.filter((entry) => entry.id !== id)
+            );
+
+        } catch (error) {
+            console.error("Error deleting sleep record:", error);
+            window.alert(error.message || "Could not delete sleep record.");
+        } finally {
+            setIsDeleting(false);
+        }
     }
 
     return (
@@ -303,16 +392,18 @@ function Sleep() {
                         Track your rest. Understand your recovery.
                     </p>
                 </div>
-
                 <button
                     className="sleep-add-button"
                     onClick={() => {
-                        setSleepDate(today);
-                        setShowForm(true);
+                        if (todayEntry) {
+                            openEditForm(todayEntry);
+                        } else {
+                            openCreateForm();
+                        }
                     }}
                 >
-                    <Plus size={18} />
-                    Log sleep
+                    {todayEntry ? <Pencil size={18} /> : <Plus size={18} />}
+                    {todayEntry ? "Edit sleep" : "Log sleep"}
                 </button>
             </div>
             <nav className="sleep-tabs" aria-label="Sleep navigation">
@@ -342,11 +433,35 @@ function Sleep() {
                                         <span className="sleep-section-label">
                                             TODAY'S RECOVERY
                                         </span>
+
                                         <h2>Your sleep overview</h2>
                                         <p>Your latest sleep and recovery measurements.</p>
                                     </div>
 
-                                    <span className="sleep-today-badge">Today</span>
+                                    <div className="sleep-overview-actions">
+                                        <span className="sleep-today-badge">Today</span>
+
+                                        <button
+                                            type="button"
+                                            className="sleep-edit-button"
+                                            onClick={() => openEditForm(todayEntry)}
+                                            aria-label="Edit today's sleep"
+                                        >
+                                            <Pencil size={15} />
+                                            Edit
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className="sleep-delete-button"
+                                            onClick={() => deleteEntry(todayEntry.id)}
+                                            disabled={isDeleting}
+                                            aria-label="Delete today's sleep"
+                                        >
+                                            <Trash2 size={15} />
+                                            {isDeleting ? "Deleting..." : "Delete"}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="sleep-overview-main">
@@ -451,7 +566,7 @@ function Sleep() {
                                                     className="sleep-stage-segment awake-segment"
                                                     style={{
                                                         width: `${(todayEntry.awakeMinutes /
-                                                                todayEntry.timeInBedMinutes) *
+                                                            todayEntry.timeInBedMinutes) *
                                                             100
                                                             }%`,
                                                     }}
@@ -461,7 +576,7 @@ function Sleep() {
                                                     className="sleep-stage-segment light-segment"
                                                     style={{
                                                         width: `${(todayEntry.lightSleepMinutes /
-                                                                todayEntry.timeInBedMinutes) *
+                                                            todayEntry.timeInBedMinutes) *
                                                             100
                                                             }%`,
                                                     }}
@@ -471,7 +586,7 @@ function Sleep() {
                                                     className="sleep-stage-segment deep-segment"
                                                     style={{
                                                         width: `${(todayEntry.deepSleepMinutes /
-                                                                todayEntry.timeInBedMinutes) *
+                                                            todayEntry.timeInBedMinutes) *
                                                             100
                                                             }%`,
                                                     }}
@@ -596,13 +711,13 @@ function Sleep() {
                                 <span className="sleep-section-label">
                                     YOUR RECOVERY
                                 </span>
-                                <h2>Log your sleep</h2>
+                                <h2>{editingEntry ? "Edit your sleep" : "Log your sleep"}</h2>
                             </div>
 
                             <button
                                 type="button"
                                 className="sleep-close-button"
-                                onClick={() => setShowForm(false)}
+                                onClick={closeSleepForm}
                                 aria-label="Close"
                             >
                                 <X size={20} />
@@ -812,9 +927,14 @@ function Sleep() {
                             <button
                                 type="submit"
                                 className="sleep-save-button"
+                                disabled={isSaving}
                             >
                                 <Check size={17} />
-                                Save sleep
+                                {isSaving
+                                    ? "Saving..."
+                                    : editingEntry
+                                        ? "Update sleep"
+                                        : "Save sleep"}
                             </button>
                         </div>
                     </form>

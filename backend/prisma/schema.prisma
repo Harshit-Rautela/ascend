@@ -187,10 +187,10 @@ model BodyMeasurement {
 }
 
 model Habit {
-  id          String            @id @default(cuid())
+  id          String  @id @default(cuid())
   title       String
   description String?
-  icon        String            @default("target")
+  icon        String  @default("target")
 
   isActive    Boolean           @default(true)
   createdAt   DateTime          @default(now())
@@ -231,32 +231,98 @@ model StepEntry {
   @@index([entryDate])
 }
 
-
 model SleepEntry {
-  id                String   @id @default(cuid())
-  sleepDate         DateTime @unique @db.Date
+  id        String   @id @default(cuid())
+  sleepDate DateTime @unique @db.Date
 
-  bedtime           String
-  wakeTime          String
+  bedtime  String
+  wakeTime String
 
-  timeInBedMinutes Int 
-  durationMinutes   Int?
+  timeInBedMinutes Int
+  durationMinutes  Int?
 
-  quality           Int
-  sleepScore        Float?
+  quality    Int
+  sleepScore Float?
 
   awakeMinutes      Int?
   lightSleepMinutes Int?
   deepSleepMinutes  Int?
 
-  heartRate         Int?
-  hrv               Int?
-  energy            Int?
+  heartRate Int?
+  hrv       Int?
+  energy    Int?
 
-  notes             String?
+  notes String?
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([sleepDate])
+}
+
+enum BiomarkerCategory {
+   BODY_COMPOSITION
+  CARDIOVASCULAR_FITNESS
+  METABOLIC
+  LIPID
+  LIVER
+  KIDNEY
+  BLOOD
+  HORMONE_NUTRITION
+}
+
+enum BiomarkerDataType {
+  NUMERIC
+  TEXT
+}
+
+enum BiomarkerSource {
+  MANUAL
+  LAB_REPORT
+  WEARABLE
+  FITNESS_TEST
+}
+
+model Biomarker {
+  id          String            @id @default(cuid())
+  key         String            @unique
+  name        String
+  category    BiomarkerCategory
+  dataType    BiomarkerDataType @default(NUMERIC)
+  defaultUnit String?
+  description String?
+
+  results BiomarkerResult[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
+model BiomarkerResult {
+  id          String @id @default(cuid())
+  biomarkerId String
+
+  valueNumeric Decimal? @db.Decimal(12, 4)
+  valueText    String?
+  unit         String
+  measuredAt   DateTime
+
+  referenceLow   Decimal? @db.Decimal(12, 4)
+  referenceHigh  Decimal? @db.Decimal(12, 4)
+  referenceRange String?
+  labFlag        String?
+
+  source     BiomarkerSource @default(MANUAL)
+  sourceName String?
+  notes      String?
+
+  biomarker Biomarker @relation(fields: [biomarkerId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([biomarkerId, measuredAt])
+  @@index([source, measuredAt])
 }

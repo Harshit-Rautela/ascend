@@ -84,7 +84,7 @@ function Nutrition() {
     const [micronutrientsLoading, setMicronutrientsLoading] = useState(true);
     const [micronutrientsError, setMicronutrientsError] = useState("");
     const [activeMicronutrientFilter, setActiveMicronutrientFilter] = useState("All");
-    
+
 
 
     const nutritionTabs = [
@@ -1062,98 +1062,136 @@ function Nutrition() {
 
                 <>
 
-                    <section className="nutrition-overview">
-                        <div className="nutrition-overview-heading">
-                            <h2>Daily nutrition overview</h2>
-                            <span>Today's progress</span>
-                        </div>
+                    <section className="nutrition-dashboard-overview">
+                        {/* CALORIE HERO */}
+                        <section className="nutrition-calorie-hero">
+                            <div className="nutrition-calorie-hero-content">
+                                <div className="nutrition-calorie-copy">
+                                    <span className="nutrition-hybrid-eyebrow">
+                                        DAILY CALORIES
+                                    </span>
 
-                        <div className="nutrition-summary-grid">
-                            {nutritionMetrics.map((item) => {
+                                    <h2>Your daily fuel.</h2>
+
+                                    <p>
+                                        Keep your nutrition on track, one meal at a time.
+                                    </p>
+
+                                    <div className="nutrition-calorie-remaining">
+                                        <span>
+                                            {Math.max(0, calorieGoal - totals.calories).toLocaleString("en-IN")}
+                                        </span>
+                                        <small>kcal remaining</small>
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="nutrition-calorie-ring"
+                                    role="progressbar"
+                                    aria-label="Daily calorie goal"
+                                    aria-valuenow={Math.min(
+                                        100,
+                                        goalPercentage(totals.calories, calorieGoal)
+                                    )}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    style={{
+                                        background: `conic-gradient(
+                        #a8e875 ${progress(totals.calories, calorieGoal)}%,
+                        rgba(255,255,255,0.13) 0
+                    )`,
+                                    }}
+                                >
+                                    <div className="nutrition-calorie-ring-inner">
+                                        <Flame size={23} />
+                                        <strong>
+                                            {Math.round(totals.calories).toLocaleString("en-IN")}
+                                        </strong>
+                                        <span>
+                                            / {calorieGoal.toLocaleString("en-IN")} kcal
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="nutrition-calorie-hero-footer">
+                                <span>
+                                    {goalPercentage(totals.calories, calorieGoal)}% of daily goal
+                                </span>
+                                <span>
+                                    {totals.calories >= calorieGoal
+                                        ? "Daily calorie goal reached"
+                                        : "You're making progress"}
+                                </span>
+                            </div>
+                        </section>
+
+                        {/* MACRO CARDS */}
+                        <div className="nutrition-hybrid-macro-grid">
+                            {macroProgress.map((item) => {
                                 const Icon = item.icon;
                                 const percentage = goalPercentage(item.value, item.goal);
-                                const remaining = Math.max(0, item.goal - item.value);
 
                                 return (
                                     <article
-                                        className={`nutrition-card nutrition-card-${item.style}`}
+                                        className={`nutrition-hybrid-macro-card ${item.style}`}
                                         key={item.label}
                                     >
-                                        <div className="nutrition-card-heading">
-                                            <span>{item.label}</span>
+                                        <div className="nutrition-hybrid-macro-header">
+                                            <span className="nutrition-hybrid-macro-icon">
+                                                <Icon size={19} />
+                                            </span>
 
-                                            {Icon && <Icon size={19} />}
-
-                                            <span className="nutrition-percentage">
-                                                {percentage.toFixed(1)}%
+                                            <span className="nutrition-hybrid-macro-percent">
+                                                {percentage}%
                                             </span>
                                         </div>
 
-                                        <div className="nutrition-big-number">
-                                            {item.label === "Calories"
-                                                ? Math.round(item.value).toLocaleString("en-IN")
-                                                : Math.round(item.value)}
-                                            <span> {item.unit}</span>
+                                        <h3>{item.label}</h3>
+
+                                        <div className="nutrition-hybrid-macro-value">
+                                            {item.value.toFixed(1).replace(/\.0$/, "")}
+                                            <span> / {item.goal} {item.unit}</span>
                                         </div>
 
-                                        <div className="nutrition-track">
+                                        <div className="nutrition-hybrid-track">
                                             <div
-                                                className={`nutrition-fill ${item.style}-fill`}
+                                                className="nutrition-hybrid-track-fill"
                                                 style={{
                                                     width: `${progress(item.value, item.goal)}%`,
                                                 }}
                                             />
                                         </div>
 
-                                        <div className="nutrition-progress-label">
-                                            {remaining > 0
-                                                ? `${item.label === "Calories"
-                                                    ? Math.round(remaining).toLocaleString("en-IN")
-                                                    : Math.round(remaining)} ${item.unit} remaining`
-                                                : "Daily target reached"}
-                                        </div>
+                                        <p>
+                                            {Math.max(0, item.goal - item.value).toFixed(1).replace(/\.0$/, "")}
+                                            {` ${item.unit} remaining`}
+                                        </p>
                                     </article>
                                 );
                             })}
                         </div>
 
-                        {/* Today's insight */}
-                        {/* <section className="nutrition-daily-insight">
-                            <div className="nutrition-insight-heading">
-                                <Sparkles size={19} />
-                                <h3>Today's insight</h3>
-                            </div>
-
-                            {totalMacroCalories === 0 ? (
-                                <p>Log your first meal to see how your nutrition is progressing.</p>
-                            ) : biggestMacroGap &&
-                                goalPercentage(biggestMacroGap.value, biggestMacroGap.goal) < 100 ? (
-                                <p>
-                                    {biggestMacroGap.label} is currently your biggest gap
-                                    relative to its daily target.
-                                </p>
-                            ) : (
-                                <p>
-                                    You've reached all your daily macro targets. Keep up the good work!
-                                </p>
-                            )}
-                        </section> */}
-
-                        {/* Macro distribution */}
-                        <section className="nutrition-macro-distribution">
-                            <div className="nutrition-distribution-heading">
+                        {/* MACRO DISTRIBUTION */}
+                        <section className="nutrition-hybrid-distribution">
+                            <div className="nutrition-hybrid-section-heading">
                                 <div>
+                                    <span className="nutrition-hybrid-eyebrow">
+                                        NUTRITION BREAKDOWN
+                                    </span>
                                     <h3>Macro distribution</h3>
-                                    <p>Based on calories from today's macros</p>
+                                    <p>How today's macros contribute to your calorie intake.</p>
                                 </div>
 
-                                <span>Today's intake</span>
+                                <span className="nutrition-hybrid-total">
+                                    {Math.round(totalMacroCalories).toLocaleString("en-IN")} kcal
+                                </span>
                             </div>
 
                             {totalMacroCalories > 0 ? (
                                 <>
                                     <div
-                                        className="nutrition-distribution-bar"
+                                        className="nutrition-hybrid-distribution-bar"
                                         role="img"
                                         aria-label={macroDistribution
                                             .map((macro) =>
@@ -1164,32 +1202,30 @@ function Nutrition() {
                                         {macroDistribution.map((macro) => (
                                             <div
                                                 key={macro.label}
-                                                className={`nutrition-distribution-segment ${macro.style}`}
-                                                style={{
-                                                    width: `${macro.percentage}%`,
-                                                }}
+                                                className={`nutrition-hybrid-distribution-segment ${macro.style}`}
+                                                style={{ width: `${macro.percentage}%` }}
                                             />
                                         ))}
                                     </div>
 
-                                    <div className="nutrition-distribution-legend">
+                                    <div className="nutrition-hybrid-distribution-legend">
                                         {macroDistribution.map((macro) => (
                                             <div key={macro.label}>
                                                 <span>
                                                     <i className={macro.style} />
                                                     {macro.label}
                                                 </span>
-
-                                                <strong>
-                                                    {Math.round(macro.percentage)}%
-                                                </strong>
+                                                <strong>{Math.round(macro.percentage)}%</strong>
+                                                <small>
+                                                    {Math.round(macro.calories)} kcal
+                                                </small>
                                             </div>
                                         ))}
                                     </div>
                                 </>
                             ) : (
-                                <p className="nutrition-distribution-empty">
-                                    Your macro distribution will appear after you log food.
+                                <p className="nutrition-hybrid-empty">
+                                    Log your first meal to see your macro distribution.
                                 </p>
                             )}
                         </section>
@@ -1199,7 +1235,7 @@ function Nutrition() {
 
 
                     <section
-                        className="panel micronutrient-panel"
+                        className="panel micronutrient-panel nutrition-hybrid-panel"
                         aria-labelledby="micronutrient-heading"
                     >
                         {/* Header */}
@@ -1253,8 +1289,8 @@ function Nutrition() {
                                             key={category}
                                             type="button"
                                             className={`micronutrient-filter ${activeMicronutrientFilter === category
-                                                    ? "active"
-                                                    : ""
+                                                ? "active"
+                                                : ""
                                                 }`}
                                             onClick={() =>
                                                 setActiveMicronutrientFilter(category)
@@ -1430,9 +1466,9 @@ function Nutrition() {
                     </section>
 
 
-                    <div className="nutrition-content-grid">
+                    <div className="nutrition-content-grid nutrition-hybrid-content-grid">
 
-                        <article className="panel nutrition-log-panel">
+                        <article className="panel nutrition-log-panel nutrition-hybrid-log-panel">
 
                             <div className="nutrition-log-header">
                                 <div>
@@ -1836,7 +1872,7 @@ function Nutrition() {
 
 
 
-                        <article className="panel meals-panel">
+                        <article className="panel meals-panel nutrition-hybrid-meals-panel">
 
                             <div className="panel-heading">
                                 <div>
