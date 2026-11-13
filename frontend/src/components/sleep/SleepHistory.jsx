@@ -132,6 +132,8 @@ function RecoveryMetricChart({
     dataKey,
     unit,
     color,
+    yAxisDomain = ["auto", "auto"],
+    yAxisTicks,
 }) {
     const hasData = data.some((day) => day[dataKey] != null);
 
@@ -153,7 +155,7 @@ function RecoveryMetricChart({
                             margin={{
                                 top: 10,
                                 right: 12,
-                                left: -18,
+                                left: 5,
                                 bottom: 0,
                             }}
                         >
@@ -172,10 +174,13 @@ function RecoveryMetricChart({
                             />
 
                             <YAxis
-                                tick={{ fill: "#91aac5", fontSize: 10 }}
+                                domain={yAxisDomain}
+                                ticks={yAxisTicks}
+                                tick={{ fill: "#91aac5", fontSize: 11 }}
                                 axisLine={false}
                                 tickLine={false}
-                                width={42}
+                                width={48}
+                                allowDecimals={false}
                             />
 
                             <Tooltip
@@ -1030,6 +1035,8 @@ export default function SleepHistory() {
                             dataKey="hrv"
                             unit="ms"
                             color="#a78bfa"
+                            yAxisDomain={[0, 400]}
+                            yAxisTicks={[0, 100, 200, 300, 400]}
                         />
 
                         <RecoveryMetricChart
