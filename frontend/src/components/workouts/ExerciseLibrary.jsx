@@ -12,6 +12,8 @@ import {
 import ExerciseDetailsModal from "./ExerciseDetailsModal";
 import "./workouts.css";
 import API_BASE_URL from "../../config/api";
+import MuscleSelect from "./MuscleSelect";
+
 const API_URL = `${API_BASE_URL}/exercise`;
 
 const categories = [
@@ -242,8 +244,8 @@ function ExerciseLibrary() {
 
       const matchesMuscle =
         activeMuscle === "ALL" ||
-        exercise.primaryMuscle === activeMuscle ||
-        exercise.secondaryMuscles?.includes(activeMuscle);
+        exercise.primaryMuscle === activeMuscle
+
 
       const exerciseEquipment = (exercise.equipment || "")
         .split(",")
@@ -353,7 +355,7 @@ function ExerciseLibrary() {
       }));
     }
   }
-  // ---------------- ADD EXERCISE ----------------
+  // ---------------- SSCISE ----------------
 
   function updateField(event) {
     const { name, value } = event.target;
@@ -484,7 +486,10 @@ function ExerciseLibrary() {
       description: exercise.description || "",
 
       primaryMuscle: exercise.primaryMuscle || "",
-      secondaryMuscles: exercise.secondaryMuscles || [],
+      // secondaryMuscles: exercise.secondaryMuscles || [],
+      secondaryMuscles: (exercise.secondaryMuscles || []).filter(
+        (muscle) => muscle !== exercise.primaryMuscle
+      ),
       exerciseType: exercise.exerciseType || "",
       movementPattern: exercise.movementPattern || "",
 
@@ -774,47 +779,44 @@ function ExerciseLibrary() {
               <label className="exercise-form-field">
                 Primary muscle
 
-                <select
-                  name="primaryMuscle"
+                <MuscleSelect
+                  muscles={muscles}
                   value={form.primaryMuscle}
-                  onChange={updateField}
-                >
-                  <option value="">Select primary muscle</option>
-
-                  {muscles.map((muscle) => (
-                    <option key={muscle} value={muscle}>
-                      {formatLabel(muscle)}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select primary muscle"
+                  onChange={(muscle) => {
+                    setForm((previous) => ({
+                      ...previous,
+                      primaryMuscle: muscle,
+                      secondaryMuscles: previous.secondaryMuscles.filter(
+                        (item) => item !== muscle
+                      ),
+                    }));
+                  }}
+                />
               </label>
 
               <label className="exercise-form-field">
                 Secondary muscles
 
-                <select
+                <MuscleSelect
+                  muscles={muscles}
                   multiple
                   value={form.secondaryMuscles}
-                  onChange={(event) => {
-                    const selectedMuscles = Array.from(
-                      event.target.selectedOptions,
-                      (option) => option.value
-                    );
-
+                  placeholder="Select secondary muscles"
+                  excludeValues={
+                    form.primaryMuscle ? [form.primaryMuscle] : []
+                  }
+                  onChange={(selectedMuscles) => {
                     setForm((previous) => ({
                       ...previous,
                       secondaryMuscles: selectedMuscles,
                     }));
                   }}
-                >
-                  {muscles.map((muscle) => (
-                    <option key={muscle} value={muscle}>
-                      {formatLabel(muscle)}
-                    </option>
-                  ))}
-                </select>
+                />
 
-                <small>Hold Ctrl (Windows) or Command (Mac) to select multiple muscles.</small>
+                <small>
+                  Select all muscles that assist in this exercise.
+                </small>
               </label>
 
               {/* EXERCISE TYPE */}
@@ -1044,19 +1046,20 @@ function ExerciseLibrary() {
               <label className="exercise-form-field">
                 Primary muscle
 
-                <select
-                  name="primaryMuscle"
+                <MuscleSelect
+                  muscles={muscles}
                   value={editForm.primaryMuscle}
-                  onChange={updateEditField}
-                >
-                  <option value="">Select primary muscle</option>
-
-                  {muscles.map((muscle) => (
-                    <option key={muscle} value={muscle}>
-                      {formatLabel(muscle)}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select primary muscle"
+                  onChange={(muscle) => {
+                    setEditForm((previous) => ({
+                      ...previous,
+                      primaryMuscle: muscle,
+                      secondaryMuscles: previous.secondaryMuscles.filter(
+                        (item) => item !== muscle
+                      ),
+                    }));
+                  }}
+                />
               </label>
 
               {/* SECONDARY MUSCLES */}
@@ -1064,33 +1067,26 @@ function ExerciseLibrary() {
               <label className="exercise-form-field">
                 Secondary muscles
 
-                <select
+                <MuscleSelect
+                  muscles={muscles}
                   multiple
                   value={editForm.secondaryMuscles}
-                  onChange={(event) => {
-                    const selectedMuscles = Array.from(
-                      event.target.selectedOptions,
-                      (option) => option.value
-                    );
-
+                  placeholder="Select secondary muscles"
+                  excludeValues={
+                    editForm.primaryMuscle ? [editForm.primaryMuscle] : []
+                  }
+                  onChange={(selectedMuscles) => {
                     setEditForm((previous) => ({
                       ...previous,
                       secondaryMuscles: selectedMuscles,
                     }));
                   }}
-                >
-                  {muscles.map((muscle) => (
-                    <option key={muscle} value={muscle}>
-                      {formatLabel(muscle)}
-                    </option>
-                  ))}
-                </select>
+                />
 
                 <small>
-                  Hold Ctrl (Windows) or Command (Mac) to select multiple muscles.
+                  Select all muscles that assist in this exercise.
                 </small>
               </label>
-
               {/* EXERCISE TYPE */}
 
               <label className="exercise-form-field">

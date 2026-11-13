@@ -4259,3 +4259,690 @@
     font-size: 10px;
   }
 }
+
+
+.muscle-select {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.muscle-select-trigger {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 1px solid #3a414b;
+  border-radius: 10px;
+  background: #191d23;
+  color: #f3f4f6;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.muscle-select-trigger:hover,
+.muscle-select--open .muscle-select-trigger {
+  border-color: #6b8fd6;
+  background: #202630;
+}
+
+.muscle-select-value {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.muscle-select-placeholder {
+  color: #929ba8;
+}
+
+.muscle-select-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  color: #aab3c0;
+}
+
+.muscle-select-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 23px;
+  height: 23px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.muscle-select-clear:hover {
+  color: #fff;
+  background: #394352;
+}
+
+.muscle-select-chevron {
+  transition: transform 160ms ease;
+}
+
+.muscle-select--open .muscle-select-chevron {
+  transform: rotate(180deg);
+}
+
+.muscle-select-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-height: 76px;
+  overflow-y: auto;
+}
+
+.muscle-select-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid #45669b;
+  border-radius: 6px;
+  background: #263a57;
+  color: #dbeafe;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.muscle-select-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  color: #a9c5ed;
+}
+
+.muscle-select-chip-remove:hover {
+  color: #fff;
+}
+
+.muscle-select-dropdown {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 50;
+  width: 100%;
+  padding: 9px;
+  border: 1px solid #3a414b;
+  border-radius: 12px;
+  background: #191d23;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.42);
+  animation: muscleDropdownIn 140ms ease;
+}
+
+@keyframes muscleDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.muscle-select-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  min-height: 39px;
+  border: 1px solid #343d49;
+  border-radius: 8px;
+  background: #11151a;
+  color: #9ba7b7;
+}
+
+.muscle-select-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f3f4f6;
+  font: inherit;
+  font-size: 13px;
+}
+
+.muscle-select-search input::placeholder {
+  color: #818b99;
+}
+
+.muscle-select-search button {
+  display: flex;
+  border: 0;
+  background: transparent;
+  color: #9ba7b7;
+  cursor: pointer;
+}
+
+.muscle-select-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 3px 6px;
+  color: #9ba7b7;
+  font-size: 11px;
+}
+
+.muscle-select-dropdown-header button {
+  border: 0;
+  background: transparent;
+  color: #8fb6f4;
+  font: inherit;
+  cursor: pointer;
+}
+
+.muscle-select-options {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 7px;
+  scrollbar-width: thin;
+  scrollbar-color: #465365 transparent;
+}
+
+.muscle-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 39px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #e5e9ef;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.muscle-select-option:hover {
+  background: #29313c;
+}
+
+.muscle-select-option.selected {
+  background: #263a57;
+  color: #dbeafe;
+}
+
+.muscle-select-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  border: 1px solid #687587;
+  color: #fff;
+}
+
+.muscle-select-indicator.checkbox {
+  border-radius: 4px;
+}
+
+.muscle-select-indicator.radio {
+  border-radius: 50%;
+}
+
+.muscle-select-indicator.checked {
+  border-color: #6195e8;
+  background: #3977cf;
+}
+
+.muscle-select-empty {
+  padding: 12px;
+  color: #929ba8;
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .muscle-select-dropdown {
+    max-height: 290px;
+  }
+
+  .muscle-select-options {
+    max-height: 190px;
+  }
+}
+
+
+/* =========================================
+   ASCEND WORKOUTS — ELECTRIC VIOLET THEME
+   Append at the very bottom of workouts.css
+========================================= */
+
+.workouts-container {
+  --workout-accent: #8B5CF6;
+  --workout-accent-light: #A78BFA;
+  --workout-accent-dark: #6D28D9;
+  --workout-accent-bg: #2E2145;
+  --workout-accent-border: #554078;
+  --workout-accent-glow: rgb(139 92 246 / 14%);
+}
+
+/* Main workout headings */
+.workouts-container .workouts-eyebrow {
+  color: #A78BFA;
+}
+
+.workouts-container .workouts-heading h1 span {
+  color: #A78BFA;
+}
+
+/* Primary buttons */
+.workouts-container .workout-primary-button {
+  background: #8B5CF6;
+  color: #fff;
+  border-color: #8B5CF6;
+  box-shadow: 0 4px 14px rgb(139 92 246 / 16%);
+}
+
+.workouts-container .workout-primary-button:hover {
+  background: #7C3AED;
+  border-color: #7C3AED;
+  box-shadow: 0 6px 18px rgb(139 92 246 / 24%);
+}
+
+/* Empty states */
+.workouts-container .workouts-empty-icon {
+  border-color: #554078;
+  background: #2E2145;
+  color: #A78BFA;
+}
+
+.workouts-container .workouts-unplanned-state > svg {
+  color: #A78BFA;
+}
+
+.workouts-container .workouts-placeholder > svg {
+  color: #A78BFA;
+}
+
+.workouts-container .workouts-placeholder > span {
+  border-color: #554078;
+  background: #2E2145;
+  color: #C4B5FD;
+}
+
+/* Weekly plan summary */
+.workouts-container .workouts-active-badge {
+  border-color: #554078;
+  background: #2E2145;
+  color: #C4B5FD;
+}
+
+/* Day selector */
+.workouts-container .workouts-day-button:hover {
+  border-color: #8B5CF6;
+}
+
+.workouts-container .workouts-day-button.selected {
+  border-color: #8B5CF6;
+  background: #2E2145;
+  color: #F5F3FF;
+}
+
+.workouts-container .workouts-day-indicator.planned {
+  background: #A78BFA;
+}
+
+/* Day controls */
+.workouts-container .workouts-icon-button:hover {
+  border-color: #8B5CF6;
+  color: #A78BFA;
+}
+
+/* Exercise list */
+.workouts-container .workouts-exercise-number {
+  border-color: #554078;
+  background: #2E2145;
+  color: #C4B5FD;
+}
+
+.workouts-container .workouts-exercise-row:hover .workouts-exercise-icon {
+  color: #A78BFA;
+}
+
+.workouts-container .workouts-add-button {
+  border-color: #554078;
+  color: #A78BFA;
+}
+
+.workouts-container .workouts-add-button:hover {
+  border-color: #8B5CF6;
+  background: #2E2145;
+}
+
+/* Navigation tabs */
+.workouts-container .workouts-tab.active {
+  border-bottom-color: #8B5CF6;
+  color: #A78BFA;
+}
+
+.workouts-container .workouts-tab:focus-visible {
+  outline-color: #A78BFA;
+}
+
+/* Exercise library */
+.workouts-container .exercise-eyebrow {
+  color: #A78BFA;
+}
+
+.workouts-container .exercise-add-button,
+.workouts-container .exercise-retry-button {
+  background: #8B5CF6;
+  color: #fff;
+}
+
+.workouts-container .exercise-add-button:hover,
+.workouts-container .exercise-retry-button:hover {
+  background: #7C3AED;
+}
+
+.workouts-container .exercise-filter.active {
+  border-color: #8B5CF6;
+  background: #8B5CF6;
+  color: #fff;
+}
+
+.workouts-container .exercise-advanced-filters select:hover {
+  border-color: #8B5CF6;
+  background-color: #201b2b;
+}
+
+.workouts-container .exercise-advanced-filters select:focus-visible {
+  border-color: #8B5CF6;
+  box-shadow: 0 0 0 2px rgb(139 92 246 / 16%);
+}
+
+.workouts-container .exercise-card:hover {
+  border-color: #8B5CF6;
+}
+
+.workouts-container .exercise-icon {
+  background: #2E2145;
+  color: #A78BFA;
+}
+
+.workouts-container .exercise-custom-tag {
+  background: #2E2145;
+  color: #C4B5FD;
+}
+
+.workouts-container .exercise-icon-button:hover {
+  border-color: #8B5CF6;
+}
+
+/* Muscle target panel */
+.workouts-container .workouts-target-muscles {
+  border-color: #554078;
+  background:
+    radial-gradient(
+      ellipse at top left,
+      rgb(139 92 246 / 9%),
+      transparent 55%
+    ),
+    linear-gradient(135deg, #211a30, #191722);
+}
+
+.workouts-container .workouts-target-muscles:hover {
+  border-color: #7658A8;
+}
+
+.workouts-container .workouts-target-muscles-count {
+  border-color: #554078;
+  background: #2E2145;
+  color: #C4B5FD;
+}
+
+.workouts-container .workouts-target-muscle-badge {
+  border-color: #7658A8;
+  background: linear-gradient(135deg, #3A2859, #2E2145);
+  color: #DDD6FE;
+}
+
+.workouts-container .workouts-target-muscle-badge:hover {
+  border-color: #A78BFA;
+  background: linear-gradient(135deg, #49336C, #36234F);
+  box-shadow: 0 4px 12px rgb(139 92 246 / 14%);
+}
+
+.workouts-container .workouts-target-muscle-badge:focus-visible {
+  outline-color: #A78BFA;
+}
+
+/* Weekly plan editor */
+.workouts-container .plan-editor-footer .workout-primary-button {
+  border-color: #8B5CF6;
+  background: #8B5CF6;
+  color: #fff;
+  box-shadow: 0 4px 14px rgb(139 92 246 / 16%);
+}
+
+.workouts-container .plan-editor-footer .workout-primary-button:hover:not(:disabled) {
+  background: #7C3AED;
+  box-shadow: 0 6px 18px rgb(139 92 246 / 22%);
+}
+
+/* Workout progress */
+.workouts-container .workouts-progress-fill {
+  background: linear-gradient(90deg, #6D28D9, #A78BFA);
+}
+
+.workouts-container .workouts-set-button:hover:not(:disabled) {
+  border-color: #8B5CF6;
+  background: rgb(139 92 246 / 12%);
+  color: #C4B5FD;
+}
+
+/* Muscle selector */
+.workouts-container .muscle-select-trigger:hover,
+.workouts-container .muscle-select--open .muscle-select-trigger {
+  border-color: #8B5CF6;
+  background: #211a30;
+}
+
+.workouts-container .muscle-select-chip {
+  border-color: #7658A8;
+  background: #2E2145;
+  color: #DDD6FE;
+}
+
+.workouts-container .muscle-select-chip-remove {
+  color: #C4B5FD;
+}
+
+.workouts-container .muscle-select-dropdown {
+  border-color: #554078;
+  background: #191722;
+}
+
+.workouts-container .muscle-select-search {
+  border-color: #554078;
+  background: #12101A;
+}
+
+.workouts-container .muscle-select-dropdown-header button {
+  color: #A78BFA;
+}
+
+.workouts-container .muscle-select-option:hover {
+  background: #2E2145;
+}
+
+.workouts-container .muscle-select-option.selected {
+  background: #382651;
+  color: #DDD6FE;
+}
+
+.workouts-container .muscle-select-indicator.checked {
+  border-color: #8B5CF6;
+  background: #8B5CF6;
+}
+
+/* Workout log */
+.workouts-container .workout-log .workout-log-refresh {
+  border-color: #554078;
+  background: #211a30;
+  color: #C4B5FD;
+}
+
+.workouts-container .workout-log .workout-log-refresh:hover:not(:disabled) {
+  border-color: #8B5CF6;
+  background: #2E2145;
+}
+
+.workouts-container .workout-log .workout-log-stat {
+  color: #C4B5FD;
+}
+
+.workouts-container .workout-log .workout-log-session:hover {
+  border-color: #554078;
+}
+
+.workouts-container .workout-log .workout-log-exercise-title svg {
+  color: #A78BFA;
+}
+
+.workouts-container .workout-log .workout-log-set:hover {
+  border-color: #554078;
+}
+
+.workouts-container .workout-log-date-picker > button {
+  border-color: #554078;
+  background: #2E2145;
+  color: #C4B5FD;
+}
+
+/* Keyboard accessibility */
+.workouts-container button:focus-visible {
+  outline-color: #A78BFA;
+}
+
+/* Preserve semantic success/warning/error status colours. */
+
+
+/* =========================================
+   WORKOUTS — REMAINING VIOLET ACCENTS
+========================================= */
+
+/* Exercise category filter tabs */
+.workouts-container .exercise-filter {
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.workouts-container .exercise-filter:hover {
+  border-color: #8B5CF6;
+  color: #C4B5FD;
+}
+
+.workouts-container .exercise-filter.active {
+  border-color: #8B5CF6;
+  background: #8B5CF6;
+  color: #FFFFFF;
+}
+
+/* Exercise card category badge */
+.workouts-container .exercise-card-category {
+  border-color: #554078;
+  background: #211A30;
+  color: #C4B5FD;
+}
+
+/* Advanced filter dropdowns */
+.workouts-container .exercise-advanced-filters select {
+  border-color: #3D344D;
+  background-color: #17151E;
+  color: #D6D0E2;
+}
+
+.workouts-container .exercise-advanced-filters select:hover,
+.workouts-container .exercise-advanced-filters select:focus {
+  border-color: #8B5CF6;
+  background-color: #211A30;
+}
+
+.workouts-container .exercise-advanced-filters select:focus-visible {
+  outline: none;
+  border-color: #A78BFA;
+  box-shadow: 0 0 0 2px rgb(139 92 246 / 16%);
+}
+
+/* Reload / refresh buttons */
+.workouts-container .exercise-retry-button,
+.workouts-container .workout-log-refresh {
+  border: 1px solid #8B5CF6;
+  background: #8B5CF6;
+  color: #FFFFFF;
+}
+
+.workouts-container .exercise-retry-button:hover,
+.workouts-container .workout-log-refresh:hover:not(:disabled) {
+  border-color: #7C3AED;
+  background: #7C3AED;
+  color: #FFFFFF;
+}
+
+/* Calendar / date picker icon */
+.workouts-container .workout-log-date-picker svg {
+  color: #A78BFA;
+}
+
+.workouts-container .workout-log-date-picker > button {
+  border-color: #554078;
+  background: #211A30;
+  color: #C4B5FD;
+}
+
+.workouts-container .workout-log-date-picker > button:hover {
+  border-color: #8B5CF6;
+  color: #DDD6FE;
+}
+
+/* Exercise card hover border */
+.workouts-container .exercise-card:hover {
+  border-color: #7658A8;
+}
+
+
+/* Exercise Library — Reset / Reload Filters Button */
+.exercise-library .exercise-reset-filters {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border: 1px solid #554078;
+  border-radius: 10px;
+  background: #211A30;
+  color: #A78BFA;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.exercise-library .exercise-reset-filters:hover {
+  border-color: #8B5CF6;
+  background: #8B5CF6;
+  color: #FFFFFF;
+  transform: rotate(15deg);
+}
+
+.exercise-library .exercise-reset-filters:focus-visible {
+  outline: 2px solid #A78BFA;
+  outline-offset: 3px;
+}
